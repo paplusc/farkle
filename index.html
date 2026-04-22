@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Farkle Dice Duel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --felt: #1a3a2a;
+            --felt-dark: #0f2219;
+            --felt-light: #254d38;
+            --felt-edge: #2d6647;
+            --gold: #d4a843;
+            --gold-light: #f0c96a;
+            --gold-dark: #a07830;
+            --cream: #f5edd8;
+            --cream-muted: #c9b88a;
+            --red-dice: #c0392b;
+            --white-dice: #f8f4ec;
+            --pip: #1a1a1a;
+            --text-main: #f5edd8;
+            --text-muted: #8aaa96;
+            --text-dim: #567064;
+            --score-bg: #0d2018;
+            --btn-radius: 10px;
+            --card-radius: 14px;
+        }
+
+        body {
+            background: var(--felt-dark);
+            color: var(--text-main);
+            font-family: 'DM Sans', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.03) 2px, rgba(0, 0, 0, 0.03) 4px),
+                repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0, 0, 0, 0.03) 2px, rgba(0, 0, 0, 0.03) 4px);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        #app {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            background: var(--felt-dark);
+            border-bottom: 2px solid var(--gold-dark);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 900;
+            color: var(--gold);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .logo span {
+            color: var(--cream-muted);
+            font-size: 11px;
+            font-family: 'DM Mono', monospace;
+            display: block;
+            letter-spacing: 3px;
+            margin-top: -2px;
+        }
+
+        .screen {
+            max-width: 430px;
+            margin: 0 auto;
+            padding: 20px 16px 160px; /* Increased padding for fixed bottom buttons */
+        }
+
+        /* PLAYER TABS (local game) */
+        .player-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            background: var(--score-bg);
+            border-radius: 12px;
+            padding: 4px;
+            border: 1px solid var(--felt-edge);
+        }
+
+        .player-tab {
+            flex: 1;
+            padding: 10px 8px;
+            border-radius: 9px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .player-tab.active {
+            background: var(--felt-light);
+            color: var(--cream);
+            border: 1px solid var(--felt-edge);
+        }
+
+        .player-tab .tab-score {
+            display: block;
+            font-family: 'DM Mono', monospace;
+            font-size: 18px;
+            color: var(--gold);
+        }
+
+        .player-tab.active .tab-score {
+            color: var(--gold-light);
+        }
+
+        /* OPPONENT INFO CARD (multiplayer) */
+        .opponent-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--score-bg);
+            border: 1px solid var(--felt-edge);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            gap: 16px;
+        }
+
+        .opp-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-dim);
+            margin-bottom: 2px;
+        }
+
+        .opp-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--cream);
+        }
+
+        .opp-stat {
+            text-align: center;
+        }
+
+        .opp-stat-val {
+            font-family: 'DM Mono', monospace;
+            font-size: 20px;
+            color: var(--gold);
+            line-height: 1;
+        }
+
+        .opp-divider {
+            width: 1px;
+            background: var(--felt-edge);
+            height: 32px;
+        }
+
+        .opp-badge {
+            font-size: 9px;
+            background: var(--gold-dark);
+            color: var(--gold-light);
+            padding: 2px 6px;
+            border-radius: 20px;
+            margin-top: 3px;
+            display: inline-block;
+        }
+
+        /* SCORE CARD */
+        .score-card {
+            background: var(--score-bg);
+            border: 1px solid var(--felt-edge);
+            border-radius: var(--card-radius);
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .score-main {
+            text-align: center;
+            flex: 1;
+        }
+
+        .sm-val {
+            font-family: 'Playfair Display', serif;
+            font-size: 42px;
+            font-weight: 700;
+            color: var(--gold-light);
+            line-height: 1;
+        }
+
+        .score-side .ss-label {
+            font-size: 10px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        .score-side .ss-val {
+            font-family: 'DM Mono', monospace;
+            font-size: 20px;
+            color: var(--cream-muted);
+        }
+
+        .score-divider {
+            width: 1px;
+            background: var(--felt-edge);
+            height: 40px;
+            margin: 0 12px;
+        }
+
+        /* DICE */
+        .dice-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            padding: 20px;
+            background: var(--felt);
+            border-radius: var(--card-radius);
+            border: 1px solid var(--felt-edge);
+            min-height: 180px;
+            margin-bottom: 16px;
+        }
+
+        .die {
+            width: 60px;
+            height: 60px;
+            background: var(--white-dice);
+            border-radius: 10px;
+            display: grid;
+            grid-template-areas: "a . b" "c e d" "f . g";
+            padding: 8px;
+            cursor: pointer;
+            box-shadow: 3px 3px 0 #bbb4a0;
+            transition: all 0.1s;
+        }
+
+        .die.kept {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 0 var(--gold-dark);
+            border: 2px solid var(--gold);
+        }
+
+        .die.locked {
+            opacity: 0.3;
+            cursor: default;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .die.rolling {
+            animation: shake 0.2s infinite;
+        }
+
+        @keyframes shake {
+            0% {
+                transform: rotate(2deg)
+            }
+
+            50% {
+                transform: rotate(-2deg)
+            }
+
+            100% {
+                transform: rotate(2deg)
+            }
+        }
+
+        .pip {
+            width: 10px;
+            height: 10px;
+            background: var(--pip);
+            border-radius: 50%;
+            align-self: center;
+            justify-self: center;
+        }
+
+        .p1 {
+            grid-area: a;
+        }
+
+        .p2 {
+            grid-area: b;
+        }
+
+        .p3 {
+            grid-area: c;
+        }
+
+        .p4 {
+            grid-area: d;
+        }
+
+        .p5 {
+            grid-area: e;
+        }
+
+        .p6 {
+            grid-area: f;
+        }
+
+        .p7 {
+            grid-area: g;
+        }
+
+        /* BUTTONS */
+        .btn-row {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 430px;
+            display: flex;
+            gap: 12px;
+            padding: 20px 16px 34px;
+            background: linear-gradient(to top, var(--felt-dark) 80%, transparent);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            border-radius: var(--btn-radius);
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .btn-roll {
+            background: var(--gold);
+            color: var(--felt-dark);
+        }
+
+        .btn-bank {
+            background: var(--felt-light);
+            color: var(--cream);
+            border: 1px solid var(--felt-edge);
+        }
+
+        .turn-area {
+            background: var(--score-bg);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--felt-edge);
+        }
+
+        .ta-val {
+            font-family: 'DM Mono', monospace;
+            font-size: 28px;
+            color: #7fe0a8;
+        }
+
+        .farkle-msg {
+            color: #ff6b6b;
+            font-weight: 900;
+            animation: blink 0.5s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.3
+            }
+        }
+
+        /* SETUP SCREEN */
+        .setup-screen {
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .setup-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 64px;
+            color: var(--gold);
+            font-weight: 900;
+        }
+
+        .setup-input {
+            width: 100%;
+            background: var(--score-bg);
+            border: 1px solid var(--felt-edge);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 5px;
+        }
+
+        .setup-field {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .notif {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--gold);
+            color: var(--felt-dark);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 700;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div v-if="notif" class="notif">{{ notif }}</div>
+
+        <!-- SETUP -->
+        <div v-if="screen === 'setup'" class="setup-screen">
+            <div class="setup-title">FARKLE</div>
+            <p style="color:var(--text-muted); margin-bottom:40px;">THE DICE DUEL</p>
+
+            <div style="max-width:300px; margin: 0 auto;">
+                <div class="setup-field">
+                    <label style="font-size:12px; color:var(--text-dim)">YOUR NAME</label>
+                    <input class="setup-input" v-model="localPlayerName" placeholder="Enter name...">
+                </div>
+
+                <div v-if="!multiplayerMode">
+                    <div class="setup-field">
+                        <label style="font-size:12px; color:var(--text-dim)">OPPONENT NAME (LOCAL)</label>
+                        <input class="setup-input" v-model="players[1].name">
+                    </div>
+                    <button class="btn btn-roll" style="width:100%; margin-top:10px" @click="startGame">START LOCAL
+                        DUEL</button>
+                    <button class="btn btn-bank" style="width:100%; margin-top:10px"
+                        @click="multiplayerMode = true">SWITCH TO ONLINE</button>
+                </div>
+
+                <div v-else>
+                    <div class="setup-field">
+                        <label style="font-size:12px; color:var(--text-dim)">JOIN ROOM (CODE)</label>
+                        <div style="display:flex; gap:10px">
+                            <input class="setup-input" v-model="inputRoomCode" placeholder="E.g. AX92K1" style="flex:2">
+                            <button class="btn btn-roll" style="padding:10px; flex:1" @click="joinGame"
+                                :disabled="!inputRoomCode || loading">JOIN</button>
+                        </div>
+                    </div>
+                    <div style="margin: 20px 0; color: var(--text-dim); font-size: 12px;">— OR —</div>
+                    <button class="btn btn-bank" style="width:100%" @click="hostGame" :disabled="loading">HOST NEW
+                        GAME</button>
+                    <!--<button class="btn" style="width:100%; margin-top:10px; color: var(--text-muted)"
+                        @click="multiplayerMode = false">BACK TO LOCAL</button>-->
+                </div>
+
+                <!-- Shown when invited via link: name prompt before auto-joining -->
+                <div v-if="pendingRoomCode && !multiplayerMode"
+                    style="margin-top:20px; background:var(--score-bg); border:1px solid var(--felt-edge); border-radius:10px; padding:14px; text-align:left">
+                    <div style="font-size:11px; color:var(--gold); margin-bottom:6px">INVITED TO ROOM <strong>{{
+                            pendingRoomCode }}</strong></div>
+                    <button class="btn btn-roll" style="width:100%" @click="acceptInvite" :disabled="loading">JOIN
+                        GAME</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- GAME -->
+        <div v-if="screen === 'game'">
+            <div class="header">
+                <div class="logo">FARKLE <span>DICE DUEL</span></div>
+                <div style="display:flex; gap:10px; align-items:center">
+                    <div v-if="multiplayerMode && roomCode" style="display:flex; align-items:center; gap:8px">
+                        <div style="text-align:right; background:var(--gold-dark); padding:4px 8px; border-radius:4px">
+                            <div style="font-size:9px; color:var(--gold-light); font-weight:bold">ROOM</div>
+                            <div style="font-family:'DM Mono'; color:white; font-size:14px">{{ roomCode }}</div>
+                        </div>
+                        <button @click="copyInviteLink"
+                            style="background:var(--felt-light); border:1px solid var(--felt-edge); color:var(--cream); border-radius:8px; padding:6px 10px; cursor:pointer; font-size:11px; font-weight:600; white-space:nowrap">{{
+                            linkCopied ? '✓ COPIED' : '🔗 SHARE' }}</button>
+                    </div>
+                    <div style="text-align:right">
+                        <div style="font-size:10px; color:var(--text-dim)">GOAL</div>
+                        <div style="font-family:'DM Mono'; color:var(--gold)">{{ target.toLocaleString() }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="screen">
+                <!-- Local game: tab switcher -->
+                <div v-if="!multiplayerMode" class="player-tabs">
+                    <div v-for="(p, i) in players" :key="i" class="player-tab" :class="{active: activeIdx === i}"
+                        @click="switchTab(i)">
+                        <div style="font-size:12px">
+                            {{ p.name }}
+                            <span v-if="p.is_finished"
+                                style="color:var(--gold); font-size:9px; display:block">FINISHED</span>
+                        </div>
+                        <span class="tab-score">{{ p.totalScore.toLocaleString() }}</span>
+                    </div>
+                </div>
+
+                <!-- Multiplayer: compact opponent info box -->
+                <div v-if="multiplayerMode" class="opponent-card">
+                    <div>
+                        <div class="opp-label">Opponent</div>
+                        <div class="opp-name">{{ players[1].name }}</div>
+                        <div v-if="players[1].is_finished" class="opp-badge">✓ FINISHED</div>
+                    </div>
+                    <div class="opp-divider"></div>
+                    <div class="opp-stat">
+                        <div class="opp-label">Score</div>
+                        <div class="opp-stat-val">{{ players[1].totalScore.toLocaleString() }}</div>
+                    </div>
+                    <div class="opp-divider"></div>
+                    <div class="opp-stat">
+                        <div class="opp-label">Turns</div>
+                        <div class="opp-stat-val">{{ players[1].turns }}</div>
+                    </div>
+                </div>
+
+                <div class="score-card">
+                    <div class="score-side">
+                        <div class="ss-label">Turn</div>
+                        <div class="ss-val">{{ current.turns + 1 }}</div>
+                    </div>
+                    <div class="score-divider"></div>
+                    <div class="score-main">
+                        <div class="sm-val">{{ current.totalScore.toLocaleString() }}</div>
+                        <div style="font-size:11px; color:var(--text-dim)">TOTAL POINTS</div>
+                    </div>
+                    <div class="score-divider"></div>
+                    <div class="score-side">
+                        <div class="ss-label">Remain</div>
+                        <div class="ss-val">{{ diceAvailable }}</div>
+                    </div>
+                </div>
+
+                <div class="turn-area">
+                    <div>
+                        <div style="font-size:11px; color:var(--text-muted)">TURN SCORE</div>
+                        <div v-if="farkled" class="farkle-msg">FARKLE!</div>
+                        <div v-else class="ta-val">{{ (current.turnAccumulated + currentSelectionScore).toLocaleString()
+                            }}</div>
+                    </div>
+                    <div style="text-align:right">
+                        <div style="font-size:11px; color:var(--text-dim)">THIS ROLL</div>
+                        <div style="color:var(--gold); font-family:'DM Mono'">+{{ currentSelectionScore }}</div>
+                    </div>
+                </div>
+
+                <div class="dice-grid">
+                    <div v-for="(d, i) in current.dice" :key="i" class="die"
+                        :class="{kept: d.kept, locked: d.locked, rolling: rolling}" @click="toggleDie(i)">
+                        <div v-for="p in getPips(d.value)" :key="p" class="pip" :class="p"></div>
+                    </div>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn btn-roll" @click="roll"
+                        :disabled="rolling || farkled || (hasRolled && currentSelectionScore === 0)">
+                        {{ hasRolled ? 'ROLL REMAINING' : 'ROLL DICE' }}
+                    </button>
+                    <button class="btn btn-bank" @click="bank" :disabled="rolling || farkled || !hasRolled">
+                        BANK
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- WINNER -->
+        <div v-if="screen === 'winner'" class="setup-screen">
+            <div style="font-size:100px">🏆</div>
+            <div class="setup-title">{{ winner.name }} WINS!</div>
+            <p style="color:var(--gold-light); font-size:20px; margin: 10px 0;">
+                Reached {{ target.toLocaleString() }} in {{ winner.turns }} turns
+            </p>
+            <p v-if="multiplayerMode" style="color:var(--text-muted); font-size:14px; margin-bottom:40px;">
+                Final Score: {{ winner.totalScore.toLocaleString() }}
+            </p>
+            <button class="btn btn-roll" style="width:200px" @click="location.reload()">NEW GAME</button>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        const SUPABASE_URL = 'https://jsbqzwsfccprxqvdzaru.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_XOGRmOq-72wRA_qYRYZ6aQ_lHh3-fwm';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        createApp({
+            setup() {
+                const screen = ref('setup');
+                const target = ref(10000);
+                const activeIdx = ref(0);
+                const rolling = ref(false);
+                const hasRolled = ref(false);
+                const farkled = ref(false);
+                const notif = ref('');
+                const winner = ref(null);
+                const loading = ref(false);
+
+                // Multiplayer State
+                const multiplayerMode = ref(true);
+                const roomCode = ref('');
+                const inputRoomCode = ref('');
+                const localPlayerName = ref(localStorage.getItem('farkle_name') || 'PLAYER 1');
+                const userId = ref(localStorage.getItem('farkle_user_id') || Math.random().toString(36).substring(2, 10).toUpperCase());
+                const pendingRoomCode = ref('');
+                const linkCopied = ref(false);
+
+                localStorage.setItem('farkle_user_id', userId.value);
+
+                // Auto-join if URL contains ?room=CODE
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlRoom = urlParams.get('room');
+                if (urlRoom) {
+                    pendingRoomCode.value = urlRoom.toUpperCase();
+                    inputRoomCode.value = urlRoom.toUpperCase();
+                    multiplayerMode.value = true;
+                }
+
+                const players = ref([
+                    { name: localPlayerName.value, totalScore: 0, turns: 0, turnAccumulated: 0, dice: [], is_finished: false },
+                    { name: 'OPPONENT', totalScore: 0, turns: 0, turnAccumulated: 0, dice: [], is_finished: false }
+                ]);
+
+                const current = computed(() => players.value[activeIdx.value]);
+
+                const diceAvailable = computed(() => {
+                    const count = current.value.dice.filter(d => !d.locked && !d.kept).length;
+                    return count === 0 ? 6 : count;
+                });
+
+                const currentSelectionScore = computed(() => {
+                    const selected = current.value.dice.filter(d => d.kept && !d.locked).map(d => d.value);
+                    return calculateScore(selected).score;
+                });
+
+                function calculateScore(dice) {
+                    if (dice.length === 0) return { score: 0, used: 0 };
+                    let score = 0;
+                    let used = 0;
+                    const counts = {};
+                    dice.forEach(d => counts[d] = (counts[d] || 0) + 1);
+
+                    const vals = Object.keys(counts).map(Number);
+
+                    // 1-6 Straight
+                    if (vals.length === 6 && vals.every(v => counts[v] === 1)) return { score: 1500, used: 6 };
+
+                    // Three Pairs
+                    const pairs = vals.filter(v => counts[v] === 2);
+                    if (pairs.length === 3) return { score: 1500, used: 6 };
+
+                    // Multiples
+                    vals.forEach(v => {
+                        let count = counts[v];
+                        if (count >= 3) {
+                            let multiplier = (count === 3) ? 1 : (count === 4) ? 2 : (count === 5) ? 4 : 8;
+                            let base = (v === 1) ? 1000 : v * 100;
+                            score += base * multiplier;
+                            used += count;
+                            counts[v] = 0;
+                        }
+                    });
+
+                    // Singles
+                    if (counts[1]) { score += counts[1] * 100; used += counts[1]; }
+                    if (counts[5]) { score += counts[5] * 50; used += counts[5]; }
+
+                    return { score, used };
+                }
+
+                function canAnyDieScore(dice) {
+                    const counts = {};
+                    dice.forEach(d => counts[d] = (counts[d] || 0) + 1);
+                    if (counts[1] || counts[5]) return true;
+                    if (Object.values(counts).some(c => c >= 3)) return true;
+                    const vals = Object.keys(counts).map(Number);
+                    if (vals.length === 6) return true; // Straight
+                    if (Object.values(counts).filter(c => c === 2).length === 3) return true; // 3 pairs
+                    return false;
+                }
+
+                function startGame() {
+                    screen.value = 'game';
+                    resetTurn();
+                }
+
+                function resetTurn() {
+                    hasRolled.value = false;
+                    farkled.value = false;
+                    current.value.turnAccumulated = 0;
+                    current.value.dice = Array.from({ length: 6 }, () => ({ value: 1, kept: false, locked: false }));
+                }
+
+                function roll() {
+                    // Update turn points with previous selection BEFORE locking
+                    current.value.turnAccumulated += currentSelectionScore.value;
+
+                    // Lock previously kept dice
+                    current.value.dice.forEach(d => {
+                        if (d.kept) d.locked = true;
+                    });
+
+                    // Check for Hot Dice (all dice locked/scoring)
+                    if (current.value.dice.every(d => d.locked)) {
+                        showNotif("HOT DICE! Rolling all 6 again.");
+                        current.value.dice.forEach(d => { d.locked = false; d.kept = false; });
+                    }
+
+                    rolling.value = true;
+
+                    setTimeout(() => {
+                        const rollValues = [];
+                        current.value.dice.forEach(d => {
+                            if (!d.locked) {
+                                d.value = Math.ceil(Math.random() * 6);
+                                d.kept = false;
+                                rollValues.push(d.value);
+                            }
+                        });
+
+                        rolling.value = false;
+                        hasRolled.value = true;
+
+                        if (!canAnyDieScore(rollValues)) {
+                            farkled.value = true;
+                            showNotif("FARKLE! Turn Over.");
+                            setTimeout(nextPlayer, 2000);
+                        }
+                    }, 600);
+                }
+
+                function toggleDie(idx) {
+                    if (rolling.value || farkled.value || !hasRolled.value) return;
+                    const die = current.value.dice[idx];
+                    if (die.locked) return;
+
+                    // Logic: only allow keeping dice that actually score
+                    const oldState = die.kept;
+                    die.kept = !die.kept;
+
+                    // Verification: Does the selection only contain scoring dice?
+                    const selected = current.value.dice.filter(d => d.kept && !d.locked);
+                    const scoring = calculateScore(selected.map(d => d.value));
+
+                    // Simple validation: if the newly selected die doesn't contribute to 'used' count, it's invalid
+                    if (die.kept && scoring.used < selected.length) {
+                        // Technically in Farkle you must keep scoring combos. 
+                        // We'll allow free selection but highlight the score.
+                    }
+                }
+
+                function bank() {
+                    const total = current.value.turnAccumulated + currentSelectionScore.value;
+                    current.value.totalScore += total;
+                    current.value.turns++;
+
+                    if (current.value.totalScore >= target.value) {
+                        current.value.is_finished = true;
+                        if (!multiplayerMode.value) {
+                            winner.value = current.value;
+                            screen.value = 'winner';
+                            return;
+                        }
+                    }
+
+                    if (multiplayerMode.value) {
+                        syncMyPlayer();
+                        if (current.value.is_finished) {
+                            showNotif("You reached the goal! Waiting for opponent...");
+                        } else {
+                            showNotif(`Banked ${total}!`);
+                        }
+                        resetTurn();
+                    } else {
+                        showNotif(`Banked ${total}!`);
+                        nextPlayer();
+                    }
+                }
+
+                function nextPlayer() {
+                    activeIdx.value = activeIdx.value === 0 ? 1 : 0;
+                    resetTurn();
+                }
+
+                function switchTab(idx) {
+                    if (hasRolled.value && !farkled.value) {
+                        showNotif("Finish your turn first!");
+                        return;
+                    }
+                    activeIdx.value = idx;
+                    resetTurn();
+                }
+
+                function showNotif(msg) {
+                    notif.value = msg;
+                    setTimeout(() => notif.value = '', 2500);
+                }
+
+                // --- MULTIPLAYER LOGIC ---
+
+                function copyInviteLink() {
+                    const url = `${window.location.origin}${window.location.pathname}?room=${roomCode.value}`;
+                    navigator.clipboard.writeText(url).then(() => {
+                        linkCopied.value = true;
+                        setTimeout(() => linkCopied.value = false, 2500);
+                    });
+                }
+
+                function acceptInvite() {
+                    inputRoomCode.value = pendingRoomCode.value;
+                    joinGame();
+                }
+
+                async function hostGame() {
+                    loading.value = true;
+                    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+                    try {
+                        const { error: gErr } = await _supabase.from('games').insert([{ id: code, target_score: target.value }]);
+                        if (gErr) throw gErr;
+
+                        const { error: pErr } = await _supabase.from('players').insert([{
+                            game_id: code,
+                            user_id: userId.value,
+                            name: localPlayerName.value
+                        }]);
+                        if (pErr) throw pErr;
+
+                        roomCode.value = code;
+                        multiplayerMode.value = true;
+                        setupMultiplayerGame(code);
+                    } catch (e) {
+                        showNotif("Error hosting game: " + e.message);
+                    } finally {
+                        loading.value = false;
+                    }
+                }
+
+                async function joinGame() {
+                    const code = inputRoomCode.value.toUpperCase();
+                    if (!code) return;
+                    loading.value = true;
+
+                    try {
+                        const { data: game, error: gErr } = await _supabase.from('games').select('*').eq('id', code).single();
+                        if (gErr || !game) throw new Error("Game not found");
+
+                        const { data: existingPlayers, error: pErr } = await _supabase.from('players').select('*').eq('game_id', code);
+                        if (pErr) throw pErr;
+
+                        const me = existingPlayers.find(p => p.user_id === userId.value);
+                        if (!me) {
+                            if (existingPlayers.length >= 2) throw new Error("Game is full");
+                            const { error: iErr } = await _supabase.from('players').insert([{
+                                game_id: code,
+                                user_id: userId.value,
+                                name: localPlayerName.value
+                            }]);
+                            if (iErr) throw iErr;
+                        }
+
+                        roomCode.value = code;
+                        target.value = game.target_score;
+                        setupMultiplayerGame(code);
+                    } catch (e) {
+                        showNotif(e.message);
+                    } finally {
+                        loading.value = false;
+                    }
+                }
+
+                function setupMultiplayerGame(code) {
+                    localStorage.setItem('farkle_name', localPlayerName.value);
+                    activeIdx.value = 0;
+                    // Initialize the dice for the local player before showing the game
+                    resetTurn();
+                    screen.value = 'game';
+
+                    // Subscribe to real-time updates
+                    _supabase
+                        .channel(`game:${code}`)
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${code}` }, payload => {
+                            handlePlayerUpdate(payload.new || payload.old);
+                        })
+                        .subscribe();
+
+                    // Initial fetch
+                    fetchPlayers(code);
+                }
+
+                async function fetchPlayers(code) {
+                    const { data } = await _supabase.from('players').select('*').eq('game_id', code);
+                    if (data) data.forEach(p => handlePlayerUpdate(p));
+                }
+
+                function handlePlayerUpdate(record) {
+                    if (!record) return;
+                    if (record.user_id === userId.value) {
+                        // Only sync score/turns/finished from DB for local player;
+                        // do NOT override dice or activeIdx — those are managed locally.
+                        players.value[0].name = record.name;
+                        players.value[0].totalScore = record.total_score ?? 0;
+                        players.value[0].turns = record.turns_used ?? 0;
+                        players.value[0].is_finished = record.is_finished ?? false;
+                    } else {
+                        players.value[1].name = record.name ?? 'OPPONENT';
+                        players.value[1].totalScore = record.total_score ?? 0;
+                        players.value[1].turns = record.turns_used ?? 0;
+                        players.value[1].is_finished = record.is_finished ?? false;
+                    }
+
+                    checkGlobalWinner();
+                }
+
+                async function syncMyPlayer() {
+                    if (!multiplayerMode.value || !roomCode.value) return;
+                    await _supabase.from('players')
+                        .update({
+                            total_score: players.value[0].totalScore,
+                            turns_used: players.value[0].turns,
+                            is_finished: players.value[0].is_finished,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('game_id', roomCode.value)
+                        .eq('user_id', userId.value);
+                }
+
+                function checkGlobalWinner() {
+                    const p1 = players.value[0];
+                    const p2 = players.value[1];
+
+                    // Both finished or one finished and other can't win
+                    if (p1.is_finished && p2.is_finished) {
+                        if (p1.turns < p2.turns) winner.value = p1;
+                        else if (p2.turns < p1.turns) winner.value = p2;
+                        else winner.value = p1; // Tie goes to first (P1)
+                        screen.value = 'winner';
+                    }
+                }
+
+                function getPips(val) {
+                    const p = {
+                        1: ['p5'],
+                        2: ['p1', 'p7'],
+                        3: ['p1', 'p5', 'p7'],
+                        4: ['p1', 'p2', 'p6', 'p7'],
+                        5: ['p1', 'p2', 'p5', 'p6', 'p7'],
+                        6: ['p1', 'p2', 'p3', 'p4', 'p6', 'p7']
+                    };
+                    return p[val];
+                }
+
+                return {
+                    screen, players, activeIdx, current, target, rolling, hasRolled, farkled,
+                    currentSelectionScore, diceAvailable, notif, winner, loading,
+                    multiplayerMode, roomCode, inputRoomCode, localPlayerName,
+                    startGame, roll, toggleDie, bank, getPips, switchTab, hostGame, joinGame,
+                    copyInviteLink, acceptInvite, linkCopied, pendingRoomCode
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>
