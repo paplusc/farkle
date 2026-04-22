@@ -740,19 +740,21 @@
           Final score: You {{ myScore }} – {{ opponentScore }} Opponent
         </template>
         <template v-else>
-          {{ roundResult?.myRoundPts > roundResult?.oppRoundPts ? 'You won the round! +' + roundResult?.myRoundPts + ' pts'
-           : roundResult?.myRoundPts < roundResult?.oppRoundPts ? 'Opponent won. +' + roundResult?.oppRoundPts + ' pts'
-           : 'No round points scored' }}
+          {{ myRoundPts > oppRoundPts ? 'You won the round! +' + myRoundPts + ' pts'
+           : myRoundPts < oppRoundPts ? 'Opponent won the round. +' + oppRoundPts + ' pts'
+           : 'Round tied — no bonus points' }}
         </template>
       </div>
 
-      <!-- Breakdown -->
+      <!-- Breakdown — row.winner is absolute 'p1'/'p2', resolved per client below -->
       <div v-if="roundResult?.breakdown?.length" class="breakdown-box">
         <div class="breakdown-title">Round Scoring</div>
         <div v-for="(row, i) in roundResult.breakdown" :key="i" class="breakdown-row">
           <span class="label">{{ row.label }}</span>
-          <span class="pts" :class="row.winner === 'me' ? 'mine' : row.winner === 'opp' ? 'theirs' : ''">
-            {{ row.winner === 'me' ? '+' + row.pts + ' you' : row.winner === 'opp' ? '+' + row.pts + ' opp' : 'tie' }}
+          <span class="pts" :class="row.winner === playerRole ? 'mine' : row.winner !== null ? 'theirs' : ''">
+            {{ row.winner === playerRole ? '+' + row.pts + ' you'
+             : row.winner !== null      ? '+' + row.pts + ' opp'
+             : 'tie' }}
           </span>
         </div>
       </div>
@@ -826,47 +828,44 @@ function scoreCaptures(cards, sweeps) {
   };
 }
 
-// perspective: 'p1' or 'p2' — so "me" in breakdown is relative
-function calcRound(s1, s2, perspective) {
+// Returns absolute 'p1'/'p2' winners — perspective resolved on each client in the template
+function calcRound(s1, s2) {
   const breakdown = [];
   let pts1 = 0, pts2 = 0;
 
   function add(label, winner, pts) {
-    const rel = winner === 'p1' ? (perspective === 'p1' ? 'me' : 'opp')
-              : winner === 'p2' ? (perspective === 'p1' ? 'opp' : 'me')
-              : null;
-    breakdown.push({ label, winner: rel, pts });
+    breakdown.push({ label, winner, pts }); // winner: 'p1' | 'p2' | null
     if (winner === 'p1') pts1 += pts;
     if (winner === 'p2') pts2 += pts;
   }
 
-  // Most cards
+  // Most cards (3 pts)
   if (s1.count !== s2.count)
     add('Most cards (' + Math.max(s1.count, s2.count) + ')', s1.count > s2.count ? 'p1' : 'p2', 3);
   else
     add('Most cards (tie — ' + s1.count + ' each)', null, 0);
 
-  // Most spades
+  // Most spades (1 pt)
   if (s1.spades !== s2.spades)
-    add('Most ♠ spades (' + Math.max(s1.spades, s2.spades) + ')', s1.spades > s2.spades ? 'p1' : 'p2', 1);
+    add('Most ♠ (' + Math.max(s1.spades, s2.spades) + ')', s1.spades > s2.spades ? 'p1' : 'p2', 1);
   else
     add('Most ♠ (tie — ' + s1.spades + ' each)', null, 0);
 
-  // Big Cassino (10♦)
-  if (s1.bigCassino) add('Big Cassino 10♦', 'p1', 2);
+  // Big Cassino 10♦ (2 pts)
+  if (s1.bigCassino)      add('Big Cassino 10♦', 'p1', 2);
   else if (s2.bigCassino) add('Big Cassino 10♦', 'p2', 2);
 
-  // Little Cassino (2♠)
-  if (s1.littleCassino) add('Little Cassino 2♠', 'p1', 1);
+  // Little Cassino 2♠ (1 pt)
+  if (s1.littleCassino)      add('Little Cassino 2♠', 'p1', 1);
   else if (s2.littleCassino) add('Little Cassino 2♠', 'p2', 1);
 
-  // Aces
-  for (let i = 0; i < s1.aces; i++) add('Ace captured', 'p1', 1);
-  for (let i = 0; i < s2.aces; i++) add('Ace captured', 'p2', 1);
+  // Aces (1 pt each)
+  for (let i = 0; i < s1.aces; i++) add('Ace (p1)', 'p1', 1);
+  for (let i = 0; i < s2.aces; i++) add('Ace (p2)', 'p2', 1);
 
-  // Sweeps
-  if (s1.sweeps > 0) add('Sweep ×' + s1.sweeps, 'p1', s1.sweeps);
-  if (s2.sweeps > 0) add('Sweep ×' + s2.sweeps, 'p2', s2.sweeps);
+  // Sweeps (1 pt each)
+  if (s1.sweeps > 0) add('Sweeps ×' + s1.sweeps, 'p1', s1.sweeps);
+  if (s2.sweeps > 0) add('Sweeps ×' + s2.sweeps, 'p2', s2.sweeps);
 
   return { pts1, pts2, breakdown };
 }
@@ -914,6 +913,15 @@ createApp({
     const opponentCaptured  = computed(() => (isP1.value ? p2Cap.value : p1Cap.value).length);
     const opponentHandCount = computed(() => isP1.value ? p2Hand.value.length : p1Hand.value.length);
     const deckCount         = computed(() => deck.value.length);
+    // Round result points from each client's own perspective
+    const myRoundPts  = computed(() => {
+      if (!roundResult.value) return 0;
+      return isP1.value ? (roundResult.value.pts1 ?? 0) : (roundResult.value.pts2 ?? 0);
+    });
+    const oppRoundPts = computed(() => {
+      if (!roundResult.value) return 0;
+      return isP1.value ? (roundResult.value.pts2 ?? 0) : (roundResult.value.pts1 ?? 0);
+    });
 
     // Table items actually selected
     const tableChosen = computed(() =>
@@ -961,31 +969,41 @@ createApp({
 
     // ── State helpers ─────────────────────────────────────────────────────────
     function applyState(s) {
-      deck.value     = s.deck      ?? deck.value;
-      table.value    = s.table     ?? table.value;
-      p1Hand.value   = s.p1Hand    ?? p1Hand.value;
-      p2Hand.value   = s.p2Hand    ?? p2Hand.value;
-      p1Cap.value    = s.p1Cap     ?? p1Cap.value;
-      p2Cap.value    = s.p2Cap     ?? p2Cap.value;
-      p1Sweeps.value = s.p1Sweeps  ?? p1Sweeps.value;
-      p2Sweeps.value = s.p2Sweeps  ?? p2Sweeps.value;
-      p1Score.value  = s.p1Score   ?? p1Score.value;
-      p2Score.value  = s.p2Score   ?? p2Score.value;
-      turn.value     = s.turn      ?? turn.value;
-      lastCapper.value = s.lastCapper ?? lastCapper.value;
-      if (s.phase)       phase.value = s.phase;
-      if (s.roundResult !== undefined) roundResult.value = s.roundResult;
+      if (s.deck      !== undefined) deck.value     = s.deck;
+      if (s.table     !== undefined) table.value    = s.table;
+      if (s.p1Hand    !== undefined) p1Hand.value   = s.p1Hand;
+      if (s.p2Hand    !== undefined) p2Hand.value   = s.p2Hand;
+      if (s.p1Cap     !== undefined) p1Cap.value    = s.p1Cap;
+      if (s.p2Cap     !== undefined) p2Cap.value    = s.p2Cap;
+      if (s.p1Sweeps  !== undefined) p1Sweeps.value = s.p1Sweeps;
+      if (s.p2Sweeps  !== undefined) p2Sweeps.value = s.p2Sweeps;
+      if (s.p1Score   !== undefined) p1Score.value  = s.p1Score;
+      if (s.p2Score   !== undefined) p2Score.value  = s.p2Score;
+      if (s.turn      !== undefined) turn.value     = s.turn;
+      // BUG FIX: lastCapper can legitimately be null — must not use ?? here
+      if ('lastCapper' in s)         lastCapper.value = s.lastCapper;
+      if (s.phase     !== undefined) phase.value    = s.phase;
+      if ('roundResult' in s)        roundResult.value = s.roundResult;
     }
 
+    // BUG FIX: clone all arrays so refillOrEnd's splice() doesn't mutate
+    // reactive refs before applyState is called
     function snap(extra = {}) {
       return {
-        deck: deck.value, table: table.value,
-        p1Hand: p1Hand.value, p2Hand: p2Hand.value,
-        p1Cap: p1Cap.value, p2Cap: p2Cap.value,
-        p1Sweeps: p1Sweeps.value, p2Sweeps: p2Sweeps.value,
-        p1Score: p1Score.value, p2Score: p2Score.value,
-        turn: turn.value, lastCapper: lastCapper.value,
-        phase: phase.value, roundResult: roundResult.value,
+        deck:      [...deck.value],
+        table:     [...table.value],
+        p1Hand:    [...p1Hand.value],
+        p2Hand:    [...p2Hand.value],
+        p1Cap:     [...p1Cap.value],
+        p2Cap:     [...p2Cap.value],
+        p1Sweeps:  p1Sweeps.value,
+        p2Sweeps:  p2Sweeps.value,
+        p1Score:   p1Score.value,
+        p2Score:   p2Score.value,
+        turn:      turn.value,
+        lastCapper: lastCapper.value,
+        phase:     phase.value,
+        roundResult: roundResult.value,
         ...extra,
       };
     }
@@ -994,6 +1012,7 @@ createApp({
       channel?.send({ type: 'broadcast', event: 'state', payload: state });
     }
 
+    // commit: apply state locally first, then broadcast to opponent
     function commit(state) {
       applyState(state);
       broadcast(state);
@@ -1003,35 +1022,33 @@ createApp({
     // ── Round mechanics ───────────────────────────────────────────────────────
     // After every move, check if hands are empty → refill or end round
     function refillOrEnd(s) {
-      if (s.p1Hand.length > 0 || s.p2Hand.length > 0) return; // hands not empty
+      if (s.p1Hand.length > 0 || s.p2Hand.length > 0) return; // hands not empty yet
 
       if (s.deck.length >= 8) {
-        // Normal refill
+        // Normal refill — safe because snap() cloned the deck array
         s.p1Hand = s.deck.splice(0, 4);
         s.p2Hand = s.deck.splice(0, 4);
         return;
       }
 
       // Deck exhausted → end of round
-      // Last capturer gets remaining table cards
+      // Last capturer gets any remaining table cards
       const leftovers = [];
       s.table.forEach(item => leftovers.push(...unwrap(item)));
       s.table = [];
       if (s.lastCapper === 'p1')      s.p1Cap = [...s.p1Cap, ...leftovers];
       else if (s.lastCapper === 'p2') s.p2Cap = [...s.p2Cap, ...leftovers];
 
-      // Score the round
+      // Score — use absolute 'p1'/'p2' winners; each client resolves perspective in template
       const stat1 = scoreCaptures(s.p1Cap, s.p1Sweeps);
       const stat2 = scoreCaptures(s.p2Cap, s.p2Sweeps);
-      const perspective = playerRole.value; // perspective for breakdown labels
-      const { pts1, pts2, breakdown } = calcRound(stat1, stat2, perspective);
+      const { pts1, pts2, breakdown } = calcRound(stat1, stat2);
 
       s.p1Score += pts1;
       s.p2Score += pts2;
 
-      const myRoundPts  = perspective === 'p1' ? pts1 : pts2;
-      const oppRoundPts = perspective === 'p1' ? pts2 : pts1;
-      s.roundResult = { breakdown, myRoundPts, oppRoundPts };
+      // Store absolute pts so each client can compute their own perspective
+      s.roundResult = { breakdown, pts1, pts2 };
 
       s.phase = (s.p1Score >= 21 || s.p2Score >= 21) ? 'game_over' : 'round_end';
     }
@@ -1046,38 +1063,34 @@ createApp({
       phase.value = 'waiting';
       statusMsg.value = mode === 'create' ? 'Waiting for opponent…' : 'Joining…';
 
-      channel = sb.channel(`cassino::${id}`, {
-        config: { broadcast: { self: true } },
-      });
+      // BUG FIX: no self:true — host already applies state locally via commit();
+      // self-echo caused host to double-apply state and sent an empty snap() to joiner
+      channel = sb.channel(`cassino::${id}`);
 
+      // BUG FIX: register ALL handlers BEFORE calling .subscribe() to avoid race conditions
       channel
         .on('broadcast', { event: 'state' }, ({ payload }) => {
           applyState(payload);
-          if (payload.phase === 'playing') resetUI();
+          resetUI();
         })
-        .on('broadcast', { event: 'resend' }, () => {
-          // Opponent asked for current state (they joined late)
-          if (playerRole.value === 'p1') broadcast(snap());
+        .on('broadcast', { event: 'join' }, () => {
+          // Only host reacts to join signals
+          if (playerRole.value !== 'p1') return;
+          if (phase.value === 'waiting') {
+            // First join → deal a fresh game
+            deal();
+          } else {
+            // Reconnection mid-game → resend current state
+            broadcast(snap());
+          }
         })
         .subscribe(async status => {
           if (status !== 'SUBSCRIBED') return;
-
-          if (mode === 'create') {
-            // Host waits; will deal once opponent signals ready
-          } else {
-            // Joiner: signal host to resend state or prompt deal
-            channel.send({ type: 'broadcast', event: 'resend', payload: {} });
-            // Also request a deal if host hasn't started yet
-            setTimeout(() => {
-              channel.send({ type: 'broadcast', event: 'joiner_ready', payload: {} });
-            }, 400);
+          if (mode === 'join') {
+            // Signal host: either start a new game or resend existing state
+            channel.send({ type: 'broadcast', event: 'join', payload: {} });
           }
         });
-
-      // Host starts the deal when joiner signals ready
-      channel.on('broadcast', { event: 'joiner_ready' }, () => {
-        if (playerRole.value === 'p1') deal();
-      });
     }
 
     function deal(keepScores = false) {
@@ -1151,14 +1164,15 @@ createApp({
       if (isP1.value) {
         s.p1Hand = p1Hand.value.filter(c => c !== hc);
         s.p1Cap  = [...p1Cap.value, ...gained];
-        if (s.table.length === 0 && s.p1Hand.length > 0) {
+        // BUG FIX: sweep is valid even on your last card; removed "&& hand.length > 0"
+        if (s.table.length === 0) {
           s.p1Sweeps = p1Sweeps.value + 1;
           showToast('🧹 SWEEP!', 'sweep');
         }
       } else {
         s.p2Hand = p2Hand.value.filter(c => c !== hc);
         s.p2Cap  = [...p2Cap.value, ...gained];
-        if (s.table.length === 0 && s.p2Hand.length > 0) {
+        if (s.table.length === 0) {
           s.p2Sweeps = p2Sweeps.value + 1;
           showToast('🧹 SWEEP!', 'sweep');
         }
@@ -1209,6 +1223,7 @@ createApp({
       // game computed
       hand, isMyTurn, myScore, opponentScore,
       myCaptured, opponentCaptured, opponentHandCount, deckCount,
+      myRoundPts, oppRoundPts,
       table, deck, turn,
       // selection
       selectedHandCard, tableChosen, tableChosenIds, tableChosenSum,
