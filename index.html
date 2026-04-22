@@ -1,1013 +1,1225 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>Farkle Dice Duel</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap"
-        rel="stylesheet">
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Cassino — Online Multiplayer Card Game</title>
+  <meta name="description" content="Play the classic fishing card game Cassino online with a friend. Mobile-first, real-time multiplayer.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        :root {
-            --felt: #1a3a2a;
-            --felt-dark: #0f2219;
-            --felt-light: #254d38;
-            --felt-edge: #2d6647;
-            --gold: #d4a843;
-            --gold-light: #f0c96a;
-            --gold-dark: #a07830;
-            --cream: #f5edd8;
-            --cream-muted: #c9b88a;
-            --red-dice: #c0392b;
-            --white-dice: #f8f4ec;
-            --pip: #1a1a1a;
-            --text-main: #f5edd8;
-            --text-muted: #8aaa96;
-            --text-dim: #567064;
-            --score-bg: #0d2018;
-            --btn-radius: 10px;
-            --card-radius: 14px;
-        }
+    :root {
+      --felt: #0f4a24;
+      --felt-light: #1a6135;
+      --felt-dark: #083018;
+      --gold: #f0b429;
+      --gold-dim: rgba(240,180,41,0.25);
+      --white-10: rgba(255,255,255,0.10);
+      --white-20: rgba(255,255,255,0.20);
+      --white-40: rgba(255,255,255,0.40);
+      --white-60: rgba(255,255,255,0.60);
+      --red-card: #c0392b;
+      --black-card: #111;
+      --card-w: 58px;
+      --card-h: 84px;
+      --radius-card: 8px;
+    }
 
-        body {
-            background: var(--felt-dark);
-            color: var(--text-main);
-            font-family: 'DM Sans', sans-serif;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
+    html, body { height: 100%; overflow: hidden; }
 
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background-image:
-                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.03) 2px, rgba(0, 0, 0, 0.03) 4px),
-                repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0, 0, 0, 0.03) 2px, rgba(0, 0, 0, 0.03) 4px);
-            pointer-events: none;
-            z-index: 0;
-        }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #04200e;
+      color: white;
+      height: 100dvh;
+      overflow: hidden;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-        #app {
-            position: relative;
-            z-index: 1;
-        }
+    #app {
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
 
-        .header {
-            background: var(--felt-dark);
-            border-bottom: 2px solid var(--gold-dark);
-            padding: 14px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
+    /* ─── LOBBY ─────────────────────────────────────────────────── */
+    .lobby {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: radial-gradient(ellipse at 50% -10%, #1a5c32 0%, #04200e 65%);
+    }
 
-        .logo {
-            font-family: 'Playfair Display', serif;
-            font-size: 24px;
-            font-weight: 900;
-            color: var(--gold);
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
+    .lobby-icon { font-size: 64px; margin-bottom: 12px; animation: float 3s ease-in-out infinite; }
 
-        .logo span {
-            color: var(--cream-muted);
-            font-size: 11px;
-            font-family: 'DM Mono', monospace;
-            display: block;
-            letter-spacing: 3px;
-            margin-top: -2px;
-        }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
 
-        .screen {
-            max-width: 430px;
-            margin: 0 auto;
-            padding: 20px 16px 160px; /* Increased padding for fixed bottom buttons */
-        }
+    .lobby h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 52px;
+      font-weight: 900;
+      letter-spacing: -1px;
+      line-height: 1;
+    }
 
-        /* PLAYER TABS (local game) */
-        .player-tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
-            background: var(--score-bg);
-            border-radius: 12px;
-            padding: 4px;
-            border: 1px solid var(--felt-edge);
-        }
+    .lobby-sub {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #6ee7b7;
+      margin-top: 6px;
+    }
 
-        .player-tab {
-            flex: 1;
-            padding: 10px 8px;
-            border-radius: 9px;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.2s;
-            border: none;
-            background: transparent;
-            color: var(--text-muted);
-            font-family: 'DM Sans', sans-serif;
-        }
+    .lobby-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 24px;
+      padding: 24px;
+      width: 100%;
+      max-width: 360px;
+      margin-top: 32px;
+      backdrop-filter: blur(8px);
+    }
 
-        .player-tab.active {
-            background: var(--felt-light);
-            color: var(--cream);
-            border: 1px solid var(--felt-edge);
-        }
+    .lobby label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #6ee7b7;
+      margin-bottom: 8px;
+    }
 
-        .player-tab .tab-score {
-            display: block;
-            font-family: 'DM Mono', monospace;
-            font-size: 18px;
-            color: var(--gold);
-        }
+    .lobby input {
+      width: 100%;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 14px;
+      padding: 14px 16px;
+      color: white;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      outline: none;
+      transition: border-color 0.2s;
+    }
 
-        .player-tab.active .tab-score {
-            color: var(--gold-light);
-        }
+    .lobby input:focus { border-color: #6ee7b7; }
+    .lobby input::placeholder { color: rgba(255,255,255,0.25); }
 
-        /* OPPONENT INFO CARD (multiplayer) */
-        .opponent-card {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: var(--score-bg);
-            border: 1px solid var(--felt-edge);
-            border-radius: 12px;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-            gap: 16px;
-        }
+    .lobby-hint { font-size: 11px; color: rgba(255,255,255,0.25); margin-top: 6px; }
 
-        .opp-label {
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: var(--text-dim);
-            margin-bottom: 2px;
-        }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
 
-        .opp-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--cream);
-        }
+    .btn-host {
+      background: #059669;
+      color: white;
+      border: none;
+      border-radius: 16px;
+      padding: 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-host:hover { background: #10b981; }
+    .btn-host:active { transform: scale(0.96); }
+    .btn-host:disabled { opacity: 0.35; cursor: not-allowed; }
 
-        .opp-stat {
-            text-align: center;
-        }
+    .btn-join {
+      background: rgba(255,255,255,0.08);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 16px;
+      padding: 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-join:hover { background: rgba(255,255,255,0.15); }
+    .btn-join:active { transform: scale(0.96); }
+    .btn-join:disabled { opacity: 0.35; cursor: not-allowed; }
 
-        .opp-stat-val {
-            font-family: 'DM Mono', monospace;
-            font-size: 20px;
-            color: var(--gold);
-            line-height: 1;
-        }
+    .status-msg { text-align: center; color: #6ee7b7; font-size: 13px; margin-top: 16px; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
-        .opp-divider {
-            width: 1px;
-            background: var(--felt-edge);
-            height: 32px;
-        }
+    .lobby-footer { font-size: 11px; color: rgba(255,255,255,0.18); text-align: center; margin-top: 24px; max-width: 260px; line-height: 1.6; }
 
-        .opp-badge {
-            font-size: 9px;
-            background: var(--gold-dark);
-            color: var(--gold-light);
-            padding: 2px 6px;
-            border-radius: 20px;
-            margin-top: 3px;
-            display: inline-block;
-        }
+    /* ─── WAITING ───────────────────────────────────────────────── */
+    .waiting {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      text-align: center;
+      background: radial-gradient(ellipse at 50% -10%, #1a5c32 0%, #04200e 65%);
+    }
 
-        /* SCORE CARD */
-        .score-card {
-            background: var(--score-bg);
-            border: 1px solid var(--felt-edge);
-            border-radius: var(--card-radius);
-            padding: 16px;
-            margin-bottom: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+    .waiting h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 26px;
+      font-weight: 700;
+      margin-top: 16px;
+    }
 
-        .score-main {
-            text-align: center;
-            flex: 1;
-        }
+    .waiting p { color: rgba(255,255,255,0.45); font-size: 14px; margin-top: 8px; }
+    .room-code { color: #6ee7b7; font-family: monospace; font-weight: 700; font-size: 17px; }
 
-        .sm-val {
-            font-family: 'Playfair Display', serif;
-            font-size: 42px;
-            font-weight: 700;
-            color: var(--gold-light);
-            line-height: 1;
-        }
+    .dots { display: flex; gap: 6px; margin-top: 28px; justify-content: center; }
+    .dots span {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #6ee7b7;
+      animation: bounce 1.2s infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } }
 
-        .score-side .ss-label {
-            font-size: 10px;
-            color: var(--text-dim);
-            text-transform: uppercase;
-        }
+    /* ─── GAME SCREEN ───────────────────────────────────────────── */
+    .game {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #04200e;
+    }
 
-        .score-side .ss-val {
-            font-family: 'DM Mono', monospace;
-            font-size: 20px;
-            color: var(--cream-muted);
-        }
+    /* Score bar */
+    .score-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px 6px;
+      flex-shrink: 0;
+    }
 
-        .score-divider {
-            width: 1px;
-            background: var(--felt-edge);
-            height: 40px;
-            margin: 0 12px;
-        }
+    .score-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px 14px;
+      border-radius: 12px;
+      min-width: 80px;
+      transition: background 0.3s, border 0.3s;
+    }
 
-        /* DICE */
-        .dice-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            justify-content: center;
-            padding: 20px;
-            background: var(--felt);
-            border-radius: var(--card-radius);
-            border: 1px solid var(--felt-edge);
-            min-height: 180px;
-            margin-bottom: 16px;
-        }
+    .score-block.active {
+      background: rgba(240,180,41,0.12);
+      border: 1px solid rgba(240,180,41,0.35);
+    }
 
-        .die {
-            width: 60px;
-            height: 60px;
-            background: var(--white-dice);
-            border-radius: 10px;
-            display: grid;
-            grid-template-areas: "a . b" "c e d" "f . g";
-            padding: 8px;
-            cursor: pointer;
-            box-shadow: 3px 3px 0 #bbb4a0;
-            transition: all 0.1s;
-        }
+    .score-block.inactive {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
 
-        .die.kept {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 0 var(--gold-dark);
-            border: 2px solid var(--gold);
-        }
+    .score-label { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+    .score-pts { font-size: 22px; font-weight: 800; line-height: 1; }
+    .score-caps { font-size: 9px; color: rgba(255,255,255,0.3); margin-top: 2px; }
 
-        .die.locked {
-            opacity: 0.3;
-            cursor: default;
-            transform: none;
-            box-shadow: none;
-        }
+    .score-center { text-align: center; flex: 1; }
+    .score-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.7);
+    }
+    .deck-count { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 1px; }
+    .turn-badge {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-top: 3px;
+    }
+    .turn-badge.mine { color: #f0b429; animation: pulse 1.5s infinite; }
+    .turn-badge.theirs { color: rgba(255,255,255,0.3); }
 
-        .die.rolling {
-            animation: shake 0.2s infinite;
-        }
+    /* Opponent hand */
+    .opp-hand {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      padding: 0 12px 6px;
+      flex-shrink: 0;
+    }
 
-        @keyframes shake {
-            0% {
-                transform: rotate(2deg)
-            }
+    /* Table */
+    .table-area {
+      flex: 1;
+      margin: 0 10px;
+      border-radius: 20px;
+      background: radial-gradient(ellipse at center, var(--felt-light) 0%, var(--felt) 60%, var(--felt-dark) 100%);
+      border: 2px solid rgba(255,255,255,0.07);
+      box-shadow: inset 0 4px 24px rgba(0,0,0,0.5);
+      display: flex;
+      flex-wrap: wrap;
+      align-content: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px;
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+      transition: box-shadow 0.4s;
+    }
 
-            50% {
-                transform: rotate(-2deg)
-            }
+    .table-area.my-turn {
+      box-shadow: inset 0 4px 24px rgba(0,0,0,0.5), 0 0 0 2px rgba(240,180,41,0.4);
+    }
 
-            100% {
-                transform: rotate(2deg)
-            }
-        }
+    .table-empty {
+      font-size: 11px;
+      color: rgba(255,255,255,0.15);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
 
-        .pip {
-            width: 10px;
-            height: 10px;
-            background: var(--pip);
-            border-radius: 50%;
-            align-self: center;
-            justify-self: center;
-        }
+    /* Hint */
+    .hint {
+      text-align: center;
+      font-size: 11px;
+      color: rgba(255,255,255,0.28);
+      padding: 4px 16px;
+      min-height: 22px;
+      flex-shrink: 0;
+    }
 
-        .p1 {
-            grid-area: a;
-        }
+    /* Hand scroll */
+    .hand-scroll {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 6px 14px 6px;
+      justify-content: center;
+      scrollbar-width: none;
+      flex-shrink: 0;
+    }
+    .hand-scroll::-webkit-scrollbar { display: none; }
 
-        .p2 {
-            grid-area: b;
-        }
+    /* Action buttons */
+    .action-bar {
+      display: flex;
+      gap: 8px;
+      padding: 8px 14px 16px;
+      flex-shrink: 0;
+    }
 
-        .p3 {
-            grid-area: c;
-        }
+    .action-btn {
+      flex: 1;
+      padding: 14px 6px;
+      border-radius: 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s, filter 0.15s;
+    }
 
-        .p4 {
-            grid-area: d;
-        }
+    .action-btn:active:not(:disabled) { transform: scale(0.95); }
+    .action-btn:disabled { opacity: 0.25; cursor: not-allowed; pointer-events: none; }
 
-        .p5 {
-            grid-area: e;
-        }
+    .btn-trail  { background: #166534; color: white; }
+    .btn-build  { background: #1e3a8a; color: white; }
+    .btn-capture { background: #92400e; color: white; }
 
-        .p6 {
-            grid-area: f;
-        }
+    .btn-trail:hover:not(:disabled) { filter: brightness(1.2); }
+    .btn-build:hover:not(:disabled) { filter: brightness(1.2); }
+    .btn-capture:hover:not(:disabled) { filter: brightness(1.2); }
 
-        .p7 {
-            grid-area: g;
-        }
+    /* ─── CARDS ─────────────────────────────────────────────────── */
+    .card {
+      width: var(--card-w);
+      height: var(--card-h);
+      border-radius: var(--radius-card);
+      background: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 4px 5px;
+      cursor: pointer;
+      user-select: none;
+      flex-shrink: 0;
+      position: relative;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
 
-        /* BUTTONS */
-        .btn-row {
-            position: fixed;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100%;
-            max-width: 430px;
-            display: flex;
-            gap: 12px;
-            padding: 20px 16px 34px;
-            background: linear-gradient(to top, var(--felt-dark) 80%, transparent);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            z-index: 100;
-        }
+    .card-rank-top { font-size: 13px; font-weight: 800; line-height: 1; }
+    .card-suit-mid { font-size: 22px; text-align: center; line-height: 1; align-self: center; }
+    .card-rank-bot { font-size: 13px; font-weight: 800; line-height: 1; align-self: flex-end; transform: rotate(180deg); }
 
-        .btn {
-            flex: 1;
-            padding: 16px;
-            border: none;
-            border-radius: var(--btn-radius);
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: 0.1s;
-        }
+    .card.red  { color: var(--red-card); }
+    .card.black { color: var(--black-card); }
 
-        .btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
+    .card-back {
+      background: linear-gradient(135deg, #1e3a8a 25%, transparent 25%) -10px 0,
+                  linear-gradient(225deg, #1e3a8a 25%, transparent 25%) -10px 0,
+                  linear-gradient(315deg, #1e3a8a 25%, transparent 25%),
+                  linear-gradient(45deg,  #1e3a8a 25%, transparent 25%);
+      background-size: 14px 14px;
+      background-color: #2563eb;
+      border: 3px solid #1e3a8a;
+      cursor: default;
+    }
 
-        .btn-roll {
-            background: var(--gold);
-            color: var(--felt-dark);
-        }
+    /* Hand cards */
+    .hand-card { box-shadow: 0 3px 10px rgba(0,0,0,0.5); }
+    .hand-card.selected {
+      transform: translateY(-14px);
+      box-shadow: 0 0 0 3px var(--gold), 0 10px 24px rgba(240,180,41,0.45);
+    }
 
-        .btn-bank {
-            background: var(--felt-light);
-            color: var(--cream);
-            border: 1px solid var(--felt-edge);
-        }
+    /* Table cards */
+    .table-card { box-shadow: 0 3px 8px rgba(0,0,0,0.5); }
+    .table-card.chosen {
+      transform: translateY(-8px);
+      box-shadow: 0 0 0 3px var(--gold), 0 8px 20px rgba(240,180,41,0.4);
+    }
+    .table-card:hover:not(.chosen) { transform: translateY(-4px); }
 
-        .turn-area {
-            background: var(--score-bg);
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid var(--felt-edge);
-        }
+    /* Build pile */
+    .build-pile {
+      position: relative;
+      width: calc(var(--card-w) + 12px);
+      height: calc(var(--card-h) + 12px);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
 
-        .ta-val {
-            font-family: 'DM Mono', monospace;
-            font-size: 28px;
-            color: #7fe0a8;
-        }
+    .build-pile .card {
+      position: absolute;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+      pointer-events: none;
+    }
 
-        .farkle-msg {
-            color: #ff6b6b;
-            font-weight: 900;
-            animation: blink 0.5s infinite;
-        }
+    .build-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: var(--gold);
+      color: #111;
+      font-size: 11px;
+      font-weight: 800;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
 
-        @keyframes blink {
+    .build-pile.chosen .build-badge {
+      box-shadow: 0 0 0 2px white;
+    }
 
-            0%,
-            100% {
-                opacity: 1
-            }
+    /* ─── MODAL OVERLAY ─────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 24px;
+      animation: fadeIn 0.25s ease;
+    }
 
-            50% {
-                opacity: 0.3
-            }
-        }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* SETUP SCREEN */
-        .setup-screen {
-            padding: 60px 20px;
-            text-align: center;
-        }
+    .modal-box {
+      background: linear-gradient(160deg, #142e1e, #0a1f10);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 28px;
+      width: 100%;
+      max-width: 380px;
+      padding: 28px 24px;
+      text-align: center;
+      animation: slideUp 0.3s ease;
+    }
 
-        .setup-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 64px;
-            color: var(--gold);
-            font-weight: 900;
-        }
+    .modal-icon { font-size: 48px; margin-bottom: 10px; }
 
-        .setup-input {
-            width: 100%;
-            background: var(--score-bg);
-            border: 1px solid var(--felt-edge);
-            color: white;
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 5px;
-        }
+    .modal-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 26px;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
 
-        .setup-field {
-            text-align: left;
-            margin-bottom: 20px;
-        }
+    .modal-sub { font-size: 13px; color: rgba(255,255,255,0.45); margin-bottom: 20px; }
 
-        .notif {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--gold);
-            color: var(--felt-dark);
-            padding: 10px 20px;
-            border-radius: 30px;
-            font-weight: 700;
-            z-index: 1000;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-        }
-    </style>
+    .breakdown-box {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 14px;
+      text-align: left;
+      margin-bottom: 16px;
+    }
+
+    .breakdown-title {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 10px;
+    }
+
+    .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 13px;
+    }
+
+    .breakdown-row:last-child { border-bottom: none; }
+    .breakdown-row .pts { font-weight: 700; }
+    .breakdown-row .pts.mine { color: var(--gold); }
+    .breakdown-row .pts.theirs { color: rgba(255,255,255,0.3); }
+    .breakdown-row .label { color: rgba(255,255,255,0.55); }
+
+    .score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+
+    .score-tile {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .score-tile.highlight {
+      background: rgba(240,180,41,0.1);
+      border-color: rgba(240,180,41,0.35);
+    }
+
+    .score-tile-label { font-size: 10px; color: rgba(255,255,255,0.4); }
+    .score-tile-pts { font-size: 28px; font-weight: 800; margin-top: 2px; }
+
+    .btn-primary {
+      width: 100%;
+      background: #059669;
+      color: white;
+      border: none;
+      border-radius: 16px;
+      padding: 17px;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-primary:hover { background: #10b981; }
+    .btn-primary:active { transform: scale(0.97); }
+
+    .waiting-msg { font-size: 13px; color: rgba(255,255,255,0.35); margin-top: 16px; animation: pulse 2s infinite; }
+
+    /* ─── TOAST ─────────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      border-radius: 100px;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      z-index: 200;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+      animation: slideUp 0.25s ease;
+      pointer-events: none;
+    }
+
+    .toast-error   { background: #dc2626; color: white; }
+    .toast-success { background: #059669; color: white; }
+    .toast-info    { background: #1d4ed8; color: white; }
+    .toast-sweep   { background: var(--gold); color: #111; }
+
+    /* ─── UTILS ─────────────────────────────────────────────────── */
+    @media (min-width: 400px) {
+      :root { --card-w: 64px; --card-h: 92px; }
+    }
+  </style>
 </head>
-
 <body>
-    <div id="app">
-        <div v-if="notif" class="notif">{{ notif }}</div>
 
-        <!-- SETUP -->
-        <div v-if="screen === 'setup'" class="setup-screen">
-            <div class="setup-title">FARKLE</div>
-            <p style="color:var(--text-muted); margin-bottom:40px;">THE DICE DUEL</p>
+<div id="app">
 
-            <div style="max-width:300px; margin: 0 auto;">
-                <div class="setup-field">
-                    <label style="font-size:12px; color:var(--text-dim)">YOUR NAME</label>
-                    <input class="setup-input" v-model="localPlayerName" placeholder="Enter name...">
-                </div>
+  <!-- ══ LOBBY ══════════════════════════════════════════════════════════ -->
+  <div v-if="phase === 'lobby'" class="lobby">
+    <div class="lobby-icon">🃏</div>
+    <h1>Cassino</h1>
+    <p class="lobby-sub">Classic Card Game · 2 Players</p>
 
-                <div v-if="!multiplayerMode">
-                    <div class="setup-field">
-                        <label style="font-size:12px; color:var(--text-dim)">OPPONENT NAME (LOCAL)</label>
-                        <input class="setup-input" v-model="players[1].name">
-                    </div>
-                    <button class="btn btn-roll" style="width:100%; margin-top:10px" @click="startGame">START LOCAL
-                        DUEL</button>
-                    <button class="btn btn-bank" style="width:100%; margin-top:10px"
-                        @click="multiplayerMode = true">SWITCH TO ONLINE</button>
-                </div>
+    <div class="lobby-card">
+      <label>Room Name</label>
+      <input
+        v-model="lobbyInput"
+        type="text"
+        placeholder="e.g. friday-night"
+        @keyup.enter="lobbyInput.trim() && initGame('create')"
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <p class="lobby-hint">Share this room name with your opponent</p>
 
-                <div v-else>
-                    <div class="setup-field">
-                        <label style="font-size:12px; color:var(--text-dim)">JOIN ROOM (CODE)</label>
-                        <div style="display:flex; gap:10px">
-                            <input class="setup-input" v-model="inputRoomCode" placeholder="E.g. AX92K1" style="flex:2">
-                            <button class="btn btn-roll" style="padding:10px; flex:1" @click="joinGame"
-                                :disabled="!inputRoomCode || loading">JOIN</button>
-                        </div>
-                    </div>
-                    <div style="margin: 20px 0; color: var(--text-dim); font-size: 12px;">— OR —</div>
-                    <button class="btn btn-bank" style="width:100%" @click="hostGame" :disabled="loading">HOST NEW
-                        GAME</button>
-                    <!--<button class="btn" style="width:100%; margin-top:10px; color: var(--text-muted)"
-                        @click="multiplayerMode = false">BACK TO LOCAL</button>-->
-                </div>
+      <div class="btn-row">
+        <button class="btn-host" :disabled="!lobbyInput.trim()" @click="initGame('create')">🏠 Host</button>
+        <button class="btn-join" :disabled="!lobbyInput.trim()" @click="initGame('join')">🚀 Join</button>
+      </div>
 
-                <!-- Shown when invited via link: name prompt before auto-joining -->
-                <div v-if="pendingRoomCode && !multiplayerMode"
-                    style="margin-top:20px; background:var(--score-bg); border:1px solid var(--felt-edge); border-radius:10px; padding:14px; text-align:left">
-                    <div style="font-size:11px; color:var(--gold); margin-bottom:6px">INVITED TO ROOM <strong>{{
-                            pendingRoomCode }}</strong></div>
-                    <button class="btn btn-roll" style="width:100%" @click="acceptInvite" :disabled="loading">JOIN
-                        GAME</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- GAME -->
-        <div v-if="screen === 'game'">
-            <div class="header">
-                <div class="logo">FARKLE <span>DICE DUEL</span></div>
-                <div style="display:flex; gap:10px; align-items:center">
-                    <div v-if="multiplayerMode && roomCode" style="display:flex; align-items:center; gap:8px">
-                        <div style="text-align:right; background:var(--gold-dark); padding:4px 8px; border-radius:4px">
-                            <div style="font-size:9px; color:var(--gold-light); font-weight:bold">ROOM</div>
-                            <div style="font-family:'DM Mono'; color:white; font-size:14px">{{ roomCode }}</div>
-                        </div>
-                        <button @click="copyInviteLink"
-                            style="background:var(--felt-light); border:1px solid var(--felt-edge); color:var(--cream); border-radius:8px; padding:6px 10px; cursor:pointer; font-size:11px; font-weight:600; white-space:nowrap">{{
-                            linkCopied ? '✓ COPIED' : '🔗 SHARE' }}</button>
-                    </div>
-                    <div style="text-align:right">
-                        <div style="font-size:10px; color:var(--text-dim)">GOAL</div>
-                        <div style="font-family:'DM Mono'; color:var(--gold)">{{ target.toLocaleString() }}</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="screen">
-                <!-- Local game: tab switcher -->
-                <div v-if="!multiplayerMode" class="player-tabs">
-                    <div v-for="(p, i) in players" :key="i" class="player-tab" :class="{active: activeIdx === i}"
-                        @click="switchTab(i)">
-                        <div style="font-size:12px">
-                            {{ p.name }}
-                            <span v-if="p.is_finished"
-                                style="color:var(--gold); font-size:9px; display:block">FINISHED</span>
-                        </div>
-                        <span class="tab-score">{{ p.totalScore.toLocaleString() }}</span>
-                    </div>
-                </div>
-
-                <!-- Multiplayer: compact opponent info box -->
-                <div v-if="multiplayerMode" class="opponent-card">
-                    <div>
-                        <div class="opp-label">Opponent</div>
-                        <div class="opp-name">{{ players[1].name }}</div>
-                        <div v-if="players[1].is_finished" class="opp-badge">✓ FINISHED</div>
-                    </div>
-                    <div class="opp-divider"></div>
-                    <div class="opp-stat">
-                        <div class="opp-label">Score</div>
-                        <div class="opp-stat-val">{{ players[1].totalScore.toLocaleString() }}</div>
-                    </div>
-                    <div class="opp-divider"></div>
-                    <div class="opp-stat">
-                        <div class="opp-label">Turns</div>
-                        <div class="opp-stat-val">{{ players[1].turns }}</div>
-                    </div>
-                </div>
-
-                <div class="score-card">
-                    <div class="score-side">
-                        <div class="ss-label">Turn</div>
-                        <div class="ss-val">{{ current.turns + 1 }}</div>
-                    </div>
-                    <div class="score-divider"></div>
-                    <div class="score-main">
-                        <div class="sm-val">{{ current.totalScore.toLocaleString() }}</div>
-                        <div style="font-size:11px; color:var(--text-dim)">TOTAL POINTS</div>
-                    </div>
-                    <div class="score-divider"></div>
-                    <div class="score-side">
-                        <div class="ss-label">Remain</div>
-                        <div class="ss-val">{{ diceAvailable }}</div>
-                    </div>
-                </div>
-
-                <div class="turn-area">
-                    <div>
-                        <div style="font-size:11px; color:var(--text-muted)">TURN SCORE</div>
-                        <div v-if="farkled" class="farkle-msg">FARKLE!</div>
-                        <div v-else class="ta-val">{{ (current.turnAccumulated + currentSelectionScore).toLocaleString()
-                            }}</div>
-                    </div>
-                    <div style="text-align:right">
-                        <div style="font-size:11px; color:var(--text-dim)">THIS ROLL</div>
-                        <div style="color:var(--gold); font-family:'DM Mono'">+{{ currentSelectionScore }}</div>
-                    </div>
-                </div>
-
-                <div class="dice-grid">
-                    <div v-for="(d, i) in current.dice" :key="i" class="die"
-                        :class="{kept: d.kept, locked: d.locked, rolling: rolling}" @click="toggleDie(i)">
-                        <div v-for="p in getPips(d.value)" :key="p" class="pip" :class="p"></div>
-                    </div>
-                </div>
-
-                <div class="btn-row">
-                    <button class="btn btn-roll" @click="roll"
-                        :disabled="rolling || farkled || (hasRolled && currentSelectionScore === 0)">
-                        {{ hasRolled ? 'ROLL REMAINING' : 'ROLL DICE' }}
-                    </button>
-                    <button class="btn btn-bank" @click="bank" :disabled="rolling || farkled || !hasRolled">
-                        BANK
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- WINNER -->
-        <div v-if="screen === 'winner'" class="setup-screen">
-            <div style="font-size:100px">🏆</div>
-            <div class="setup-title">{{ winner.name }} WINS!</div>
-            <p style="color:var(--gold-light); font-size:20px; margin: 10px 0;">
-                Reached {{ target.toLocaleString() }} in {{ winner.turns }} turns
-            </p>
-            <p v-if="multiplayerMode" style="color:var(--text-muted); font-size:14px; margin-bottom:40px;">
-                Final Score: {{ winner.totalScore.toLocaleString() }}
-            </p>
-            <button class="btn btn-roll" style="width:200px" @click="location.reload()">NEW GAME</button>
-        </div>
+      <p v-if="statusMsg" class="status-msg">{{ statusMsg }}</p>
     </div>
 
-    <script>
-        const { createApp, ref, computed, onMounted } = Vue;
+    <p class="lobby-footer">First to 21 points wins · Captures · Builds · Sweeps</p>
+  </div>
 
-        const SUPABASE_URL = 'https://jsbqzwsfccprxqvdzaru.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_XOGRmOq-72wRA_qYRYZ6aQ_lHh3-fwm';
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  <!-- ══ WAITING ═════════════════════════════════════════════════════════ -->
+  <div v-else-if="phase === 'waiting'" class="waiting">
+    <div style="font-size:48px;">⏳</div>
+    <h2>Waiting for opponent</h2>
+    <p>Room: <span class="room-code">{{ gameId }}</span></p>
+    <p style="margin-top:4px; font-size:12px;">Share this room name and ask them to join!</p>
+    <div class="dots"><span></span><span></span><span></span></div>
+  </div>
 
-        createApp({
-            setup() {
-                const screen = ref('setup');
-                const target = ref(10000);
-                const activeIdx = ref(0);
-                const rolling = ref(false);
-                const hasRolled = ref(false);
-                const farkled = ref(false);
-                const notif = ref('');
-                const winner = ref(null);
-                const loading = ref(false);
+  <!-- ══ GAME ════════════════════════════════════════════════════════════ -->
+  <div v-else-if="phase === 'playing'" class="game">
 
-                // Multiplayer State
-                const multiplayerMode = ref(true);
-                const roomCode = ref('');
-                const inputRoomCode = ref('');
-                const localPlayerName = ref(localStorage.getItem('farkle_name') || 'PLAYER 1');
-                const userId = ref(localStorage.getItem('farkle_user_id') || Math.random().toString(36).substring(2, 10).toUpperCase());
-                const pendingRoomCode = ref('');
-                const linkCopied = ref(false);
+    <!-- Score bar -->
+    <div class="score-bar">
+      <div class="score-block" :class="!isMyTurn ? 'active' : 'inactive'">
+        <span class="score-label">Opponent</span>
+        <span class="score-pts">{{ opponentScore }}</span>
+        <span class="score-caps">{{ opponentCaptured }} cards</span>
+      </div>
 
-                localStorage.setItem('farkle_user_id', userId.value);
+      <div class="score-center">
+        <div class="score-title">CASSINO</div>
+        <div class="deck-count">{{ deckCount }} in deck</div>
+        <div class="turn-badge" :class="isMyTurn ? 'mine' : 'theirs'">
+          {{ isMyTurn ? '⭐ Your turn' : 'Their turn…' }}
+        </div>
+      </div>
 
-                // Auto-join if URL contains ?room=CODE
-                const urlParams = new URLSearchParams(window.location.search);
-                const urlRoom = urlParams.get('room');
-                if (urlRoom) {
-                    pendingRoomCode.value = urlRoom.toUpperCase();
-                    inputRoomCode.value = urlRoom.toUpperCase();
-                    multiplayerMode.value = true;
-                }
+      <div class="score-block" :class="isMyTurn ? 'active' : 'inactive'">
+        <span class="score-label">You</span>
+        <span class="score-pts">{{ myScore }}</span>
+        <span class="score-caps">{{ myCaptured }} cards</span>
+      </div>
+    </div>
 
-                const players = ref([
-                    { name: localPlayerName.value, totalScore: 0, turns: 0, turnAccumulated: 0, dice: [], is_finished: false },
-                    { name: 'OPPONENT', totalScore: 0, turns: 0, turnAccumulated: 0, dice: [], is_finished: false }
-                ]);
+    <!-- Opponent hand (face-down) -->
+    <div class="opp-hand">
+      <div v-for="n in opponentHandCount" :key="n"
+        class="card card-back"
+        style="width:36px;height:52px;border-radius:6px;flex-shrink:0;">
+      </div>
+    </div>
 
-                const current = computed(() => players.value[activeIdx.value]);
+    <!-- Table -->
+    <div class="table-area" :class="{ 'my-turn': isMyTurn }">
+      <span v-if="table.length === 0" class="table-empty">Table is empty</span>
 
-                const diceAvailable = computed(() => {
-                    const count = current.value.dice.filter(d => !d.locked && !d.kept).length;
-                    return count === 0 ? 6 : count;
-                });
+      <template v-for="(item, idx) in table" :key="item.id || idx">
 
-                const currentSelectionScore = computed(() => {
-                    const selected = current.value.dice.filter(d => d.kept && !d.locked).map(d => d.value);
-                    return calculateScore(selected).score;
-                });
+        <!-- Single card -->
+        <div v-if="!item.isBuild"
+          class="card table-card"
+          :class="[item.color, isChosenTable(item) ? 'chosen' : '']"
+          @click="isMyTurn && selectedHandCard && toggleTable(item)"
+        >
+          <div class="card-rank-top">{{ item.rank }}</div>
+          <div class="card-suit-mid">{{ item.suit }}</div>
+          <div class="card-rank-bot">{{ item.rank }}</div>
+        </div>
 
-                function calculateScore(dice) {
-                    if (dice.length === 0) return { score: 0, used: 0 };
-                    let score = 0;
-                    let used = 0;
-                    const counts = {};
-                    dice.forEach(d => counts[d] = (counts[d] || 0) + 1);
+        <!-- Build -->
+        <div v-else
+          class="build-pile"
+          :class="{ chosen: isChosenTable(item) }"
+          @click="isMyTurn && selectedHandCard && toggleTable(item)"
+        >
+          <div
+            v-for="(bc, bi) in item.cards.slice(0, 4)" :key="bi"
+            class="card"
+            :class="bc.color"
+            :style="{ left: (bi*5)+'px', top: (bi*4)+'px', zIndex: bi }"
+          >
+            <div class="card-rank-top">{{ bc.rank }}</div>
+            <div class="card-suit-mid">{{ bc.suit }}</div>
+            <div class="card-rank-bot">{{ bc.rank }}</div>
+          </div>
+          <div class="build-badge">{{ item.value }}</div>
+        </div>
 
-                    const vals = Object.keys(counts).map(Number);
+      </template>
+    </div>
 
-                    // 1-6 Straight
-                    if (vals.length === 6 && vals.every(v => counts[v] === 1)) return { score: 1500, used: 6 };
+    <!-- Hint -->
+    <div class="hint">
+      <span v-if="!isMyTurn">Waiting for opponent…</span>
+      <span v-else-if="!selectedHandCard">Tap a card from your hand</span>
+      <span v-else-if="tableChosen.length === 0">Tap table cards to capture or build · or Trail</span>
+      <span v-else>CAPTURE or BUILD? (sum={{ tableChosenSum }}, hand={{ selectedHandCard.value }})</span>
+    </div>
 
-                    // Three Pairs
-                    const pairs = vals.filter(v => counts[v] === 2);
-                    if (pairs.length === 3) return { score: 1500, used: 6 };
+    <!-- My hand -->
+    <div class="hand-scroll">
+      <div v-for="(card, idx) in hand" :key="card.id"
+        class="card hand-card"
+        :class="[card.color, selectedHandCard === card ? 'selected' : '']"
+        @click="isMyTurn && selectHand(card)"
+      >
+        <div class="card-rank-top">{{ card.rank }}</div>
+        <div class="card-suit-mid">{{ card.suit }}</div>
+        <div class="card-rank-bot">{{ card.rank }}</div>
+      </div>
+    </div>
 
-                    // Multiples
-                    vals.forEach(v => {
-                        let count = counts[v];
-                        if (count >= 3) {
-                            let multiplier = (count === 3) ? 1 : (count === 4) ? 2 : (count === 5) ? 4 : 8;
-                            let base = (v === 1) ? 1000 : v * 100;
-                            score += base * multiplier;
-                            used += count;
-                            counts[v] = 0;
-                        }
-                    });
+    <!-- Actions -->
+    <div class="action-bar">
+      <button class="action-btn btn-trail"
+        :disabled="!isMyTurn || !selectedHandCard || tableChosen.length > 0"
+        @click="doTrail">Trail</button>
+      <button class="action-btn btn-build"
+        :disabled="!canBuild"
+        @click="doBuild">Build {{ canBuild ? '(' + buildSum + ')' : '' }}</button>
+      <button class="action-btn btn-capture"
+        :disabled="!canCapture"
+        @click="doCapture">Capture ({{ tableChosen.length }})</button>
+    </div>
 
-                    // Singles
-                    if (counts[1]) { score += counts[1] * 100; used += counts[1]; }
-                    if (counts[5]) { score += counts[5] * 50; used += counts[5]; }
+  </div>
 
-                    return { score, used };
-                }
+  <!-- ══ ROUND END / GAME OVER ═══════════════════════════════════════════ -->
+  <div v-if="phase === 'round_end' || phase === 'game_over'" class="modal-overlay">
+    <div class="modal-box">
 
-                function canAnyDieScore(dice) {
-                    const counts = {};
-                    dice.forEach(d => counts[d] = (counts[d] || 0) + 1);
-                    if (counts[1] || counts[5]) return true;
-                    if (Object.values(counts).some(c => c >= 3)) return true;
-                    const vals = Object.keys(counts).map(Number);
-                    if (vals.length === 6) return true; // Straight
-                    if (Object.values(counts).filter(c => c === 2).length === 3) return true; // 3 pairs
-                    return false;
-                }
+      <div class="modal-icon">{{ phase === 'game_over' ? '🏆' : '🎴' }}</div>
 
-                function startGame() {
-                    screen.value = 'game';
-                    resetTurn();
-                }
+      <div class="modal-title">
+        <template v-if="phase === 'game_over'">
+          {{ myScore > opponentScore ? 'You Win!' : myScore < opponentScore ? 'You Lose.' : 'It\'s a Tie!' }}
+        </template>
+        <template v-else>Round Over</template>
+      </div>
 
-                function resetTurn() {
-                    hasRolled.value = false;
-                    farkled.value = false;
-                    current.value.turnAccumulated = 0;
-                    current.value.dice = Array.from({ length: 6 }, () => ({ value: 1, kept: false, locked: false }));
-                }
+      <div class="modal-sub">
+        <template v-if="phase === 'game_over'">
+          Final score: You {{ myScore }} – {{ opponentScore }} Opponent
+        </template>
+        <template v-else>
+          {{ roundResult?.myRoundPts > roundResult?.oppRoundPts ? 'You won the round! +' + roundResult?.myRoundPts + ' pts'
+           : roundResult?.myRoundPts < roundResult?.oppRoundPts ? 'Opponent won. +' + roundResult?.oppRoundPts + ' pts'
+           : 'No round points scored' }}
+        </template>
+      </div>
 
-                function roll() {
-                    // Update turn points with previous selection BEFORE locking
-                    current.value.turnAccumulated += currentSelectionScore.value;
+      <!-- Breakdown -->
+      <div v-if="roundResult?.breakdown?.length" class="breakdown-box">
+        <div class="breakdown-title">Round Scoring</div>
+        <div v-for="(row, i) in roundResult.breakdown" :key="i" class="breakdown-row">
+          <span class="label">{{ row.label }}</span>
+          <span class="pts" :class="row.winner === 'me' ? 'mine' : row.winner === 'opp' ? 'theirs' : ''">
+            {{ row.winner === 'me' ? '+' + row.pts + ' you' : row.winner === 'opp' ? '+' + row.pts + ' opp' : 'tie' }}
+          </span>
+        </div>
+      </div>
 
-                    // Lock previously kept dice
-                    current.value.dice.forEach(d => {
-                        if (d.kept) d.locked = true;
-                    });
+      <!-- Scores -->
+      <div class="score-grid">
+        <div class="score-tile" :class="{ highlight: myScore >= opponentScore }">
+          <div class="score-tile-label">You</div>
+          <div class="score-tile-pts">{{ myScore }}</div>
+        </div>
+        <div class="score-tile" :class="{ highlight: opponentScore > myScore }">
+          <div class="score-tile-label">Opponent</div>
+          <div class="score-tile-pts">{{ opponentScore }}</div>
+        </div>
+      </div>
 
-                    // Check for Hot Dice (all dice locked/scoring)
-                    if (current.value.dice.every(d => d.locked)) {
-                        showNotif("HOT DICE! Rolling all 6 again.");
-                        current.value.dice.forEach(d => { d.locked = false; d.kept = false; });
-                    }
+      <!-- Host controls -->
+      <template v-if="playerRole === 'p1'">
+        <button v-if="phase === 'round_end'" class="btn-primary" @click="nextRound">Next Round →</button>
+        <button v-else class="btn-primary" @click="playAgain">🔄 Play Again</button>
+      </template>
+      <p v-else class="waiting-msg">Waiting for host to continue…</p>
 
-                    rolling.value = true;
+    </div>
+  </div>
 
-                    setTimeout(() => {
-                        const rollValues = [];
-                        current.value.dice.forEach(d => {
-                            if (!d.locked) {
-                                d.value = Math.ceil(Math.random() * 6);
-                                d.kept = false;
-                                rollValues.push(d.value);
-                            }
-                        });
+  <!-- ══ TOAST ════════════════════════════════════════════════════════════ -->
+  <div v-if="toast" class="toast" :class="'toast-' + toast.type">{{ toast.msg }}</div>
 
-                        rolling.value = false;
-                        hasRolled.value = true;
+</div><!-- #app -->
 
-                        if (!canAnyDieScore(rollValues)) {
-                            farkled.value = true;
-                            showNotif("FARKLE! Turn Over.");
-                            setTimeout(nextPlayer, 2000);
-                        }
-                    }, 600);
-                }
+<script>
+const { createApp, ref, computed } = Vue;
 
-                function toggleDie(idx) {
-                    if (rolling.value || farkled.value || !hasRolled.value) return;
-                    const die = current.value.dice[idx];
-                    if (die.locked) return;
+// ─── Supabase ────────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://jsbqzwsfccprxqvdzaru.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_XOGRmOq-72wRA_qYRYZ6aQ_lHh3-fwm';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-                    // Logic: only allow keeping dice that actually score
-                    const oldState = die.kept;
-                    die.kept = !die.kept;
+// ─── Card helpers ─────────────────────────────────────────────────────────────
+const VALS = { A:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:9, 10:10, J:11, Q:12, K:13 };
 
-                    // Verification: Does the selection only contain scoring dice?
-                    const selected = current.value.dice.filter(d => d.kept && !d.locked);
-                    const scoring = calculateScore(selected.map(d => d.value));
+function makeDeck() {
+  const suits = ['♠','♥','♦','♣'];
+  const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+  const deck = [];
+  suits.forEach(s => ranks.forEach(r => {
+    deck.push({ id: s + r, suit: s, rank: r, value: VALS[r], color: (s==='♥'||s==='♦') ? 'red' : 'black' });
+  }));
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
 
-                    // Simple validation: if the newly selected die doesn't contribute to 'used' count, it's invalid
-                    if (die.kept && scoring.used < selected.length) {
-                        // Technically in Farkle you must keep scoring combos. 
-                        // We'll allow free selection but highlight the score.
-                    }
-                }
+// Unwrap a table item (card or build) into individual cards
+function unwrap(item) {
+  return item.isBuild ? [...item.cards] : [item];
+}
 
-                function bank() {
-                    const total = current.value.turnAccumulated + currentSelectionScore.value;
-                    current.value.totalScore += total;
-                    current.value.turns++;
+// ─── Scoring ──────────────────────────────────────────────────────────────────
+function scoreCaptures(cards, sweeps) {
+  return {
+    count:        cards.length,
+    spades:       cards.filter(c => c.suit === '♠').length,
+    bigCassino:   cards.some(c => c.rank === '10' && c.suit === '♦'),
+    littleCassino:cards.some(c => c.rank === '2'  && c.suit === '♠'),
+    aces:         cards.filter(c => c.rank === 'A').length,
+    sweeps,
+  };
+}
 
-                    if (current.value.totalScore >= target.value) {
-                        current.value.is_finished = true;
-                        if (!multiplayerMode.value) {
-                            winner.value = current.value;
-                            screen.value = 'winner';
-                            return;
-                        }
-                    }
+// perspective: 'p1' or 'p2' — so "me" in breakdown is relative
+function calcRound(s1, s2, perspective) {
+  const breakdown = [];
+  let pts1 = 0, pts2 = 0;
 
-                    if (multiplayerMode.value) {
-                        syncMyPlayer();
-                        if (current.value.is_finished) {
-                            showNotif("You reached the goal! Waiting for opponent...");
-                        } else {
-                            showNotif(`Banked ${total}!`);
-                        }
-                        resetTurn();
-                    } else {
-                        showNotif(`Banked ${total}!`);
-                        nextPlayer();
-                    }
-                }
+  function add(label, winner, pts) {
+    const rel = winner === 'p1' ? (perspective === 'p1' ? 'me' : 'opp')
+              : winner === 'p2' ? (perspective === 'p1' ? 'opp' : 'me')
+              : null;
+    breakdown.push({ label, winner: rel, pts });
+    if (winner === 'p1') pts1 += pts;
+    if (winner === 'p2') pts2 += pts;
+  }
 
-                function nextPlayer() {
-                    activeIdx.value = activeIdx.value === 0 ? 1 : 0;
-                    resetTurn();
-                }
+  // Most cards
+  if (s1.count !== s2.count)
+    add('Most cards (' + Math.max(s1.count, s2.count) + ')', s1.count > s2.count ? 'p1' : 'p2', 3);
+  else
+    add('Most cards (tie — ' + s1.count + ' each)', null, 0);
 
-                function switchTab(idx) {
-                    if (hasRolled.value && !farkled.value) {
-                        showNotif("Finish your turn first!");
-                        return;
-                    }
-                    activeIdx.value = idx;
-                    resetTurn();
-                }
+  // Most spades
+  if (s1.spades !== s2.spades)
+    add('Most ♠ spades (' + Math.max(s1.spades, s2.spades) + ')', s1.spades > s2.spades ? 'p1' : 'p2', 1);
+  else
+    add('Most ♠ (tie — ' + s1.spades + ' each)', null, 0);
 
-                function showNotif(msg) {
-                    notif.value = msg;
-                    setTimeout(() => notif.value = '', 2500);
-                }
+  // Big Cassino (10♦)
+  if (s1.bigCassino) add('Big Cassino 10♦', 'p1', 2);
+  else if (s2.bigCassino) add('Big Cassino 10♦', 'p2', 2);
 
-                // --- MULTIPLAYER LOGIC ---
+  // Little Cassino (2♠)
+  if (s1.littleCassino) add('Little Cassino 2♠', 'p1', 1);
+  else if (s2.littleCassino) add('Little Cassino 2♠', 'p2', 1);
 
-                function copyInviteLink() {
-                    const url = `${window.location.origin}${window.location.pathname}?room=${roomCode.value}`;
-                    navigator.clipboard.writeText(url).then(() => {
-                        linkCopied.value = true;
-                        setTimeout(() => linkCopied.value = false, 2500);
-                    });
-                }
+  // Aces
+  for (let i = 0; i < s1.aces; i++) add('Ace captured', 'p1', 1);
+  for (let i = 0; i < s2.aces; i++) add('Ace captured', 'p2', 1);
 
-                function acceptInvite() {
-                    inputRoomCode.value = pendingRoomCode.value;
-                    joinGame();
-                }
+  // Sweeps
+  if (s1.sweeps > 0) add('Sweep ×' + s1.sweeps, 'p1', s1.sweeps);
+  if (s2.sweeps > 0) add('Sweep ×' + s2.sweeps, 'p2', s2.sweeps);
 
-                async function hostGame() {
-                    loading.value = true;
-                    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return { pts1, pts2, breakdown };
+}
 
-                    try {
-                        const { error: gErr } = await _supabase.from('games').insert([{ id: code, target_score: target.value }]);
-                        if (gErr) throw gErr;
+// ─── Vue App ──────────────────────────────────────────────────────────────────
+createApp({
+  setup() {
+    // Phase: lobby | waiting | playing | round_end | game_over
+    const phase       = ref('lobby');
+    const gameId      = ref('');
+    const lobbyInput  = ref('');
+    const playerRole  = ref('');   // 'p1' | 'p2'
+    const statusMsg   = ref('');
+    const toast       = ref(null);
+    const roundResult = ref(null);
 
-                        const { error: pErr } = await _supabase.from('players').insert([{
-                            game_id: code,
-                            user_id: userId.value,
-                            name: localPlayerName.value
-                        }]);
-                        if (pErr) throw pErr;
+    // ── Game state ──
+    const deck       = ref([]);
+    const table      = ref([]);
+    const p1Hand     = ref([]);
+    const p2Hand     = ref([]);
+    const p1Cap      = ref([]);   // captured pile
+    const p2Cap      = ref([]);
+    const p1Sweeps   = ref(0);
+    const p2Sweeps   = ref(0);
+    const p1Score    = ref(0);
+    const p2Score    = ref(0);
+    const turn       = ref('p1');
+    const lastCapper = ref(null); // who last captured (gets table leftovers)
 
-                        roomCode.value = code;
-                        multiplayerMode.value = true;
-                        setupMultiplayerGame(code);
-                    } catch (e) {
-                        showNotif("Error hosting game: " + e.message);
-                    } finally {
-                        loading.value = false;
-                    }
-                }
+    // ── UI selection state ──
+    const selectedHandCard = ref(null);
+    const tableChosenIds   = ref([]);   // IDs of selected table items
 
-                async function joinGame() {
-                    const code = inputRoomCode.value.toUpperCase();
-                    if (!code) return;
-                    loading.value = true;
+    let channel = null;
+    let toastTimer = null;
 
-                    try {
-                        const { data: game, error: gErr } = await _supabase.from('games').select('*').eq('id', code).single();
-                        if (gErr || !game) throw new Error("Game not found");
+    // ── Computed ─────────────────────────────────────────────────────────────
+    const isP1       = computed(() => playerRole.value === 'p1');
+    const hand       = computed(() => isP1.value ? p1Hand.value : p2Hand.value);
+    const isMyTurn   = computed(() => turn.value === playerRole.value);
+    const myScore    = computed(() => isP1.value ? p1Score.value : p2Score.value);
+    const opponentScore     = computed(() => isP1.value ? p2Score.value : p1Score.value);
+    const myCaptured        = computed(() => (isP1.value ? p1Cap.value : p2Cap.value).length);
+    const opponentCaptured  = computed(() => (isP1.value ? p2Cap.value : p1Cap.value).length);
+    const opponentHandCount = computed(() => isP1.value ? p2Hand.value.length : p1Hand.value.length);
+    const deckCount         = computed(() => deck.value.length);
 
-                        const { data: existingPlayers, error: pErr } = await _supabase.from('players').select('*').eq('game_id', code);
-                        if (pErr) throw pErr;
+    // Table items actually selected
+    const tableChosen = computed(() =>
+      table.value.filter(item => tableChosenIds.value.includes(item.id))
+    );
 
-                        const me = existingPlayers.find(p => p.user_id === userId.value);
-                        if (!me) {
-                            if (existingPlayers.length >= 2) throw new Error("Game is full");
-                            const { error: iErr } = await _supabase.from('players').insert([{
-                                game_id: code,
-                                user_id: userId.value,
-                                name: localPlayerName.value
-                            }]);
-                            if (iErr) throw iErr;
-                        }
+    // Sum of chosen table items
+    const tableChosenSum = computed(() =>
+      tableChosen.value.reduce((acc, item) => acc + (item.isBuild ? item.value : item.value), 0)
+    );
 
-                        roomCode.value = code;
-                        target.value = game.target_score;
-                        setupMultiplayerGame(code);
-                    } catch (e) {
-                        showNotif(e.message);
-                    } finally {
-                        loading.value = false;
-                    }
-                }
+    // Build sum = table selected + hand card
+    const buildSum = computed(() => {
+      if (!selectedHandCard.value) return 0;
+      return tableChosenSum.value + selectedHandCard.value.value;
+    });
 
-                function setupMultiplayerGame(code) {
-                    localStorage.setItem('farkle_name', localPlayerName.value);
-                    activeIdx.value = 0;
-                    // Initialize the dice for the local player before showing the game
-                    resetTurn();
-                    screen.value = 'game';
+    // Can capture: selected table items must match hand card
+    // Either: all same rank as hand card, OR sum equals hand card value
+    const canCapture = computed(() => {
+      if (!isMyTurn.value || !selectedHandCard.value || tableChosen.value.length === 0) return false;
+      const hv = selectedHandCard.value.value;
+      const sel = tableChosen.value;
+      // Rank match: all singles, same rank
+      const rankMatch = sel.every(it => !it.isBuild && it.rank === selectedHandCard.value.rank);
+      // Sum match (any mix of singles + builds)
+      const sumMatch = tableChosenSum.value === hv;
+      return rankMatch || sumMatch;
+    });
 
-                    // Subscribe to real-time updates
-                    _supabase
-                        .channel(`game:${code}`)
-                        .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${code}` }, payload => {
-                            handlePlayerUpdate(payload.new || payload.old);
-                        })
-                        .subscribe();
+    // Can build: hand card + table cards sum to a value X where player holds another card of value X
+    const canBuild = computed(() => {
+      if (!isMyTurn.value || !selectedHandCard.value || tableChosen.value.length === 0) return false;
+      if (tableChosen.value.some(it => it.isBuild)) return false; // no nested builds for simplicity
+      const bv = buildSum.value;
+      return hand.value.some(c => c !== selectedHandCard.value && c.value === bv);
+    });
 
-                    // Initial fetch
-                    fetchPlayers(code);
-                }
+    // ── Toast ─────────────────────────────────────────────────────────────────
+    function showToast(msg, type = 'info', ms = 2800) {
+      toast.value = { msg, type };
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.value = null; }, ms);
+    }
 
-                async function fetchPlayers(code) {
-                    const { data } = await _supabase.from('players').select('*').eq('game_id', code);
-                    if (data) data.forEach(p => handlePlayerUpdate(p));
-                }
+    // ── State helpers ─────────────────────────────────────────────────────────
+    function applyState(s) {
+      deck.value     = s.deck      ?? deck.value;
+      table.value    = s.table     ?? table.value;
+      p1Hand.value   = s.p1Hand    ?? p1Hand.value;
+      p2Hand.value   = s.p2Hand    ?? p2Hand.value;
+      p1Cap.value    = s.p1Cap     ?? p1Cap.value;
+      p2Cap.value    = s.p2Cap     ?? p2Cap.value;
+      p1Sweeps.value = s.p1Sweeps  ?? p1Sweeps.value;
+      p2Sweeps.value = s.p2Sweeps  ?? p2Sweeps.value;
+      p1Score.value  = s.p1Score   ?? p1Score.value;
+      p2Score.value  = s.p2Score   ?? p2Score.value;
+      turn.value     = s.turn      ?? turn.value;
+      lastCapper.value = s.lastCapper ?? lastCapper.value;
+      if (s.phase)       phase.value = s.phase;
+      if (s.roundResult !== undefined) roundResult.value = s.roundResult;
+    }
 
-                function handlePlayerUpdate(record) {
-                    if (!record) return;
-                    if (record.user_id === userId.value) {
-                        // Only sync score/turns/finished from DB for local player;
-                        // do NOT override dice or activeIdx — those are managed locally.
-                        players.value[0].name = record.name;
-                        players.value[0].totalScore = record.total_score ?? 0;
-                        players.value[0].turns = record.turns_used ?? 0;
-                        players.value[0].is_finished = record.is_finished ?? false;
-                    } else {
-                        players.value[1].name = record.name ?? 'OPPONENT';
-                        players.value[1].totalScore = record.total_score ?? 0;
-                        players.value[1].turns = record.turns_used ?? 0;
-                        players.value[1].is_finished = record.is_finished ?? false;
-                    }
+    function snap(extra = {}) {
+      return {
+        deck: deck.value, table: table.value,
+        p1Hand: p1Hand.value, p2Hand: p2Hand.value,
+        p1Cap: p1Cap.value, p2Cap: p2Cap.value,
+        p1Sweeps: p1Sweeps.value, p2Sweeps: p2Sweeps.value,
+        p1Score: p1Score.value, p2Score: p2Score.value,
+        turn: turn.value, lastCapper: lastCapper.value,
+        phase: phase.value, roundResult: roundResult.value,
+        ...extra,
+      };
+    }
 
-                    checkGlobalWinner();
-                }
+    function broadcast(state) {
+      channel?.send({ type: 'broadcast', event: 'state', payload: state });
+    }
 
-                async function syncMyPlayer() {
-                    if (!multiplayerMode.value || !roomCode.value) return;
-                    await _supabase.from('players')
-                        .update({
-                            total_score: players.value[0].totalScore,
-                            turns_used: players.value[0].turns,
-                            is_finished: players.value[0].is_finished,
-                            updated_at: new Date().toISOString()
-                        })
-                        .eq('game_id', roomCode.value)
-                        .eq('user_id', userId.value);
-                }
+    function commit(state) {
+      applyState(state);
+      broadcast(state);
+      resetUI();
+    }
 
-                function checkGlobalWinner() {
-                    const p1 = players.value[0];
-                    const p2 = players.value[1];
+    // ── Round mechanics ───────────────────────────────────────────────────────
+    // After every move, check if hands are empty → refill or end round
+    function refillOrEnd(s) {
+      if (s.p1Hand.length > 0 || s.p2Hand.length > 0) return; // hands not empty
 
-                    // Both finished or one finished and other can't win
-                    if (p1.is_finished && p2.is_finished) {
-                        if (p1.turns < p2.turns) winner.value = p1;
-                        else if (p2.turns < p1.turns) winner.value = p2;
-                        else winner.value = p1; // Tie goes to first (P1)
-                        screen.value = 'winner';
-                    }
-                }
+      if (s.deck.length >= 8) {
+        // Normal refill
+        s.p1Hand = s.deck.splice(0, 4);
+        s.p2Hand = s.deck.splice(0, 4);
+        return;
+      }
 
-                function getPips(val) {
-                    const p = {
-                        1: ['p5'],
-                        2: ['p1', 'p7'],
-                        3: ['p1', 'p5', 'p7'],
-                        4: ['p1', 'p2', 'p6', 'p7'],
-                        5: ['p1', 'p2', 'p5', 'p6', 'p7'],
-                        6: ['p1', 'p2', 'p3', 'p4', 'p6', 'p7']
-                    };
-                    return p[val];
-                }
+      // Deck exhausted → end of round
+      // Last capturer gets remaining table cards
+      const leftovers = [];
+      s.table.forEach(item => leftovers.push(...unwrap(item)));
+      s.table = [];
+      if (s.lastCapper === 'p1')      s.p1Cap = [...s.p1Cap, ...leftovers];
+      else if (s.lastCapper === 'p2') s.p2Cap = [...s.p2Cap, ...leftovers];
 
-                return {
-                    screen, players, activeIdx, current, target, rolling, hasRolled, farkled,
-                    currentSelectionScore, diceAvailable, notif, winner, loading,
-                    multiplayerMode, roomCode, inputRoomCode, localPlayerName,
-                    startGame, roll, toggleDie, bank, getPips, switchTab, hostGame, joinGame,
-                    copyInviteLink, acceptInvite, linkCopied, pendingRoomCode
-                };
-            }
-        }).mount('#app');
-    </script>
+      // Score the round
+      const stat1 = scoreCaptures(s.p1Cap, s.p1Sweeps);
+      const stat2 = scoreCaptures(s.p2Cap, s.p2Sweeps);
+      const perspective = playerRole.value; // perspective for breakdown labels
+      const { pts1, pts2, breakdown } = calcRound(stat1, stat2, perspective);
+
+      s.p1Score += pts1;
+      s.p2Score += pts2;
+
+      const myRoundPts  = perspective === 'p1' ? pts1 : pts2;
+      const oppRoundPts = perspective === 'p1' ? pts2 : pts1;
+      s.roundResult = { breakdown, myRoundPts, oppRoundPts };
+
+      s.phase = (s.p1Score >= 21 || s.p2Score >= 21) ? 'game_over' : 'round_end';
+    }
+
+    // ── Lobby ─────────────────────────────────────────────────────────────────
+    async function initGame(mode) {
+      const id = lobbyInput.value.trim().toLowerCase();
+      if (!id) return;
+
+      gameId.value = id;
+      playerRole.value = mode === 'create' ? 'p1' : 'p2';
+      phase.value = 'waiting';
+      statusMsg.value = mode === 'create' ? 'Waiting for opponent…' : 'Joining…';
+
+      channel = sb.channel(`cassino::${id}`, {
+        config: { broadcast: { self: true } },
+      });
+
+      channel
+        .on('broadcast', { event: 'state' }, ({ payload }) => {
+          applyState(payload);
+          if (payload.phase === 'playing') resetUI();
+        })
+        .on('broadcast', { event: 'resend' }, () => {
+          // Opponent asked for current state (they joined late)
+          if (playerRole.value === 'p1') broadcast(snap());
+        })
+        .subscribe(async status => {
+          if (status !== 'SUBSCRIBED') return;
+
+          if (mode === 'create') {
+            // Host waits; will deal once opponent signals ready
+          } else {
+            // Joiner: signal host to resend state or prompt deal
+            channel.send({ type: 'broadcast', event: 'resend', payload: {} });
+            // Also request a deal if host hasn't started yet
+            setTimeout(() => {
+              channel.send({ type: 'broadcast', event: 'joiner_ready', payload: {} });
+            }, 400);
+          }
+        });
+
+      // Host starts the deal when joiner signals ready
+      channel.on('broadcast', { event: 'joiner_ready' }, () => {
+        if (playerRole.value === 'p1') deal();
+      });
+    }
+
+    function deal(keepScores = false) {
+      const d = makeDeck();
+      const s = {
+        deck: d,
+        table: d.splice(0, 4),
+        p1Hand: d.splice(0, 4),
+        p2Hand: d.splice(0, 4),
+        p1Cap: [], p2Cap: [],
+        p1Sweeps: 0, p2Sweeps: 0,
+        p1Score: keepScores ? p1Score.value : 0,
+        p2Score: keepScores ? p2Score.value : 0,
+        turn: 'p1', lastCapper: null,
+        phase: 'playing', roundResult: null,
+      };
+      commit(s);
+    }
+
+    // ── UI helpers ─────────────────────────────────────────────────────────────
+    function resetUI() {
+      selectedHandCard.value = null;
+      tableChosenIds.value = [];
+    }
+
+    function selectHand(card) {
+      if (selectedHandCard.value === card) {
+        selectedHandCard.value = null;
+        tableChosenIds.value = [];
+      } else {
+        selectedHandCard.value = card;
+        tableChosenIds.value = [];
+      }
+    }
+
+    function isChosenTable(item) {
+      return tableChosenIds.value.includes(item.id);
+    }
+
+    function toggleTable(item) {
+      const idx = tableChosenIds.value.indexOf(item.id);
+      if (idx > -1) tableChosenIds.value.splice(idx, 1);
+      else tableChosenIds.value.push(item.id);
+    }
+
+    // ── Actions ────────────────────────────────────────────────────────────────
+    function doTrail() {
+      if (!isMyTurn.value || !selectedHandCard.value) return;
+      const hc = selectedHandCard.value;
+      const s = snap();
+      s.table = [...table.value, hc];
+      if (isP1.value) s.p1Hand = p1Hand.value.filter(c => c !== hc);
+      else            s.p2Hand = p2Hand.value.filter(c => c !== hc);
+      s.turn = isP1.value ? 'p2' : 'p1';
+      refillOrEnd(s);
+      commit(s);
+    }
+
+    function doCapture() {
+      if (!canCapture.value) { showToast('Invalid capture!', 'error'); return; }
+      const hc  = selectedHandCard.value;
+      const sel = tableChosen.value;
+
+      // Collect all cards going to capture pile
+      const gained = [hc];
+      sel.forEach(item => gained.push(...unwrap(item)));
+
+      const s = snap();
+      s.table = table.value.filter(item => !sel.includes(item));
+
+      if (isP1.value) {
+        s.p1Hand = p1Hand.value.filter(c => c !== hc);
+        s.p1Cap  = [...p1Cap.value, ...gained];
+        if (s.table.length === 0 && s.p1Hand.length > 0) {
+          s.p1Sweeps = p1Sweeps.value + 1;
+          showToast('🧹 SWEEP!', 'sweep');
+        }
+      } else {
+        s.p2Hand = p2Hand.value.filter(c => c !== hc);
+        s.p2Cap  = [...p2Cap.value, ...gained];
+        if (s.table.length === 0 && s.p2Hand.length > 0) {
+          s.p2Sweeps = p2Sweeps.value + 1;
+          showToast('🧹 SWEEP!', 'sweep');
+        }
+      }
+
+      s.lastCapper = playerRole.value;
+      s.turn = isP1.value ? 'p2' : 'p1';
+      refillOrEnd(s);
+      commit(s);
+    }
+
+    function doBuild() {
+      if (!canBuild.value) return;
+      const hc  = selectedHandCard.value;
+      const sel = tableChosen.value;
+      const bv  = buildSum.value;
+
+      const build = {
+        id: 'build_' + Date.now(),
+        isBuild: true,
+        cards: [...sel, hc],
+        value: bv,
+        owner: playerRole.value,
+      };
+
+      const s = snap();
+      s.table = [...table.value.filter(it => !sel.includes(it)), build];
+      if (isP1.value) s.p1Hand = p1Hand.value.filter(c => c !== hc);
+      else            s.p2Hand = p2Hand.value.filter(c => c !== hc);
+      s.turn = isP1.value ? 'p2' : 'p1';
+      refillOrEnd(s);
+      commit(s);
+      showToast('Build ' + bv + ' placed!', 'info');
+    }
+
+    // ── Round / game controls ─────────────────────────────────────────────────
+    function nextRound() {
+      deal(true); // keep cumulative scores
+    }
+
+    function playAgain() {
+      deal(false); // reset scores
+    }
+
+    return {
+      // phase / meta
+      phase, gameId, lobbyInput, playerRole, statusMsg, toast, roundResult,
+      // game computed
+      hand, isMyTurn, myScore, opponentScore,
+      myCaptured, opponentCaptured, opponentHandCount, deckCount,
+      table, deck, turn,
+      // selection
+      selectedHandCard, tableChosen, tableChosenIds, tableChosenSum,
+      buildSum, canCapture, canBuild,
+      // methods
+      initGame, selectHand, isChosenTable, toggleTable,
+      doTrail, doCapture, doBuild,
+      nextRound, playAgain,
+    };
+  },
+}).mount('#app');
+</script>
 </body>
-
 </html>
