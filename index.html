@@ -1,1240 +1,1530 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Cassino — Online Multiplayer Card Game</title>
-  <meta name="description" content="Play the classic fishing card game Cassino online with a friend. Mobile-first, real-time multiplayer.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --felt: #0f4a24;
-      --felt-light: #1a6135;
-      --felt-dark: #083018;
-      --gold: #f0b429;
-      --gold-dim: rgba(240,180,41,0.25);
-      --white-10: rgba(255,255,255,0.10);
-      --white-20: rgba(255,255,255,0.20);
-      --white-40: rgba(255,255,255,0.40);
-      --white-60: rgba(255,255,255,0.60);
-      --red-card: #c0392b;
-      --black-card: #111;
-      --card-w: 58px;
-      --card-h: 84px;
-      --radius-card: 8px;
-    }
-
-    html, body { height: 100%; overflow: hidden; }
-
-    body {
-      font-family: 'Inter', sans-serif;
-      background: #04200e;
-      color: white;
-      height: 100dvh;
-      overflow: hidden;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    #app {
-      height: 100dvh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* ─── LOBBY ─────────────────────────────────────────────────── */
-    .lobby {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      background: radial-gradient(ellipse at 50% -10%, #1a5c32 0%, #04200e 65%);
-    }
-
-    .lobby-icon { font-size: 64px; margin-bottom: 12px; animation: float 3s ease-in-out infinite; }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-
-    .lobby h1 {
-      font-family: 'Playfair Display', serif;
-      font-size: 52px;
-      font-weight: 900;
-      letter-spacing: -1px;
-      line-height: 1;
-    }
-
-    .lobby-sub {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      color: #6ee7b7;
-      margin-top: 6px;
-    }
-
-    .lobby-card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 24px;
-      padding: 24px;
-      width: 100%;
-      max-width: 360px;
-      margin-top: 32px;
-      backdrop-filter: blur(8px);
-    }
-
-    .lobby label {
-      display: block;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: #6ee7b7;
-      margin-bottom: 8px;
-    }
-
-    .lobby input {
-      width: 100%;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 14px;
-      padding: 14px 16px;
-      color: white;
-      font-family: 'Inter', sans-serif;
-      font-size: 15px;
-      font-weight: 500;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .lobby input:focus { border-color: #6ee7b7; }
-    .lobby input::placeholder { color: rgba(255,255,255,0.25); }
-
-    .lobby-hint { font-size: 11px; color: rgba(255,255,255,0.25); margin-top: 6px; }
-
-    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
-
-    .btn-host {
-      background: #059669;
-      color: white;
-      border: none;
-      border-radius: 16px;
-      padding: 16px;
-      font-family: 'Inter', sans-serif;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background 0.15s, transform 0.1s;
-    }
-    .btn-host:hover { background: #10b981; }
-    .btn-host:active { transform: scale(0.96); }
-    .btn-host:disabled { opacity: 0.35; cursor: not-allowed; }
-
-    .btn-join {
-      background: rgba(255,255,255,0.08);
-      color: white;
-      border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 16px;
-      padding: 16px;
-      font-family: 'Inter', sans-serif;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background 0.15s, transform 0.1s;
-    }
-    .btn-join:hover { background: rgba(255,255,255,0.15); }
-    .btn-join:active { transform: scale(0.96); }
-    .btn-join:disabled { opacity: 0.35; cursor: not-allowed; }
-
-    .status-msg { text-align: center; color: #6ee7b7; font-size: 13px; margin-top: 16px; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-
-    .lobby-footer { font-size: 11px; color: rgba(255,255,255,0.18); text-align: center; margin-top: 24px; max-width: 260px; line-height: 1.6; }
-
-    /* ─── WAITING ───────────────────────────────────────────────── */
-    .waiting {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 32px;
-      text-align: center;
-      background: radial-gradient(ellipse at 50% -10%, #1a5c32 0%, #04200e 65%);
-    }
-
-    .waiting h2 {
-      font-family: 'Playfair Display', serif;
-      font-size: 26px;
-      font-weight: 700;
-      margin-top: 16px;
-    }
-
-    .waiting p { color: rgba(255,255,255,0.45); font-size: 14px; margin-top: 8px; }
-    .room-code { color: #6ee7b7; font-family: monospace; font-weight: 700; font-size: 17px; }
-
-    .dots { display: flex; gap: 6px; margin-top: 28px; justify-content: center; }
-    .dots span {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #6ee7b7;
-      animation: bounce 1.2s infinite;
-    }
-    .dots span:nth-child(2) { animation-delay: 0.2s; }
-    .dots span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes bounce { 0%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } }
-
-    /* ─── GAME SCREEN ───────────────────────────────────────────── */
-    .game {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      background: #04200e;
-    }
-
-    /* Score bar */
-    .score-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 16px 6px;
-      flex-shrink: 0;
-    }
-
-    .score-block {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 6px 14px;
-      border-radius: 12px;
-      min-width: 80px;
-      transition: background 0.3s, border 0.3s;
-    }
-
-    .score-block.active {
-      background: rgba(240,180,41,0.12);
-      border: 1px solid rgba(240,180,41,0.35);
-    }
-
-    .score-block.inactive {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .score-label { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.45); }
-    .score-pts { font-size: 22px; font-weight: 800; line-height: 1; }
-    .score-caps { font-size: 9px; color: rgba(255,255,255,0.3); margin-top: 2px; }
-
-    .score-center { text-align: center; flex: 1; }
-    .score-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 16px;
-      font-weight: 700;
-      color: rgba(255,255,255,0.7);
-    }
-    .deck-count { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 1px; }
-    .turn-badge {
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      margin-top: 3px;
-    }
-    .turn-badge.mine { color: #f0b429; animation: pulse 1.5s infinite; }
-    .turn-badge.theirs { color: rgba(255,255,255,0.3); }
-
-    /* Opponent hand */
-    .opp-hand {
-      display: flex;
-      justify-content: center;
-      gap: 4px;
-      padding: 0 12px 6px;
-      flex-shrink: 0;
-    }
-
-    /* Table */
-    .table-area {
-      flex: 1;
-      margin: 0 10px;
-      border-radius: 20px;
-      background: radial-gradient(ellipse at center, var(--felt-light) 0%, var(--felt) 60%, var(--felt-dark) 100%);
-      border: 2px solid rgba(255,255,255,0.07);
-      box-shadow: inset 0 4px 24px rgba(0,0,0,0.5);
-      display: flex;
-      flex-wrap: wrap;
-      align-content: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 10px;
-      position: relative;
-      overflow: hidden;
-      min-height: 0;
-      transition: box-shadow 0.4s;
-    }
-
-    .table-area.my-turn {
-      box-shadow: inset 0 4px 24px rgba(0,0,0,0.5), 0 0 0 2px rgba(240,180,41,0.4);
-    }
-
-    .table-empty {
-      font-size: 11px;
-      color: rgba(255,255,255,0.15);
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      font-weight: 600;
-    }
-
-    /* Hint */
-    .hint {
-      text-align: center;
-      font-size: 11px;
-      color: rgba(255,255,255,0.28);
-      padding: 4px 16px;
-      min-height: 22px;
-      flex-shrink: 0;
-    }
-
-    /* Hand scroll */
-    .hand-scroll {
-      display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      padding: 6px 14px 6px;
-      justify-content: center;
-      scrollbar-width: none;
-      flex-shrink: 0;
-    }
-    .hand-scroll::-webkit-scrollbar { display: none; }
-
-    /* Action buttons */
-    .action-bar {
-      display: flex;
-      gap: 8px;
-      padding: 8px 14px 16px;
-      flex-shrink: 0;
-    }
-
-    .action-btn {
-      flex: 1;
-      padding: 14px 6px;
-      border-radius: 16px;
-      font-family: 'Inter', sans-serif;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      border: none;
-      cursor: pointer;
-      transition: opacity 0.15s, transform 0.1s, filter 0.15s;
-    }
-
-    .action-btn:active:not(:disabled) { transform: scale(0.95); }
-    .action-btn:disabled { opacity: 0.25; cursor: not-allowed; pointer-events: none; }
-
-    .btn-trail  { background: #166534; color: white; }
-    .btn-build  { background: #1e3a8a; color: white; }
-    .btn-capture { background: #92400e; color: white; }
-
-    .btn-trail:hover:not(:disabled) { filter: brightness(1.2); }
-    .btn-build:hover:not(:disabled) { filter: brightness(1.2); }
-    .btn-capture:hover:not(:disabled) { filter: brightness(1.2); }
-
-    /* ─── CARDS ─────────────────────────────────────────────────── */
-    .card {
-      width: var(--card-w);
-      height: var(--card-h);
-      border-radius: var(--radius-card);
-      background: white;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 4px 5px;
-      cursor: pointer;
-      user-select: none;
-      flex-shrink: 0;
-      position: relative;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-
-    .card-rank-top { font-size: 13px; font-weight: 800; line-height: 1; }
-    .card-suit-mid { font-size: 22px; text-align: center; line-height: 1; align-self: center; }
-    .card-rank-bot { font-size: 13px; font-weight: 800; line-height: 1; align-self: flex-end; transform: rotate(180deg); }
-
-    .card.red  { color: var(--red-card); }
-    .card.black { color: var(--black-card); }
-
-    .card-back {
-      background: linear-gradient(135deg, #1e3a8a 25%, transparent 25%) -10px 0,
-                  linear-gradient(225deg, #1e3a8a 25%, transparent 25%) -10px 0,
-                  linear-gradient(315deg, #1e3a8a 25%, transparent 25%),
-                  linear-gradient(45deg,  #1e3a8a 25%, transparent 25%);
-      background-size: 14px 14px;
-      background-color: #2563eb;
-      border: 3px solid #1e3a8a;
-      cursor: default;
-    }
-
-    /* Hand cards */
-    .hand-card { box-shadow: 0 3px 10px rgba(0,0,0,0.5); }
-    .hand-card.selected {
-      transform: translateY(-14px);
-      box-shadow: 0 0 0 3px var(--gold), 0 10px 24px rgba(240,180,41,0.45);
-    }
-
-    /* Table cards */
-    .table-card { box-shadow: 0 3px 8px rgba(0,0,0,0.5); }
-    .table-card.chosen {
-      transform: translateY(-8px);
-      box-shadow: 0 0 0 3px var(--gold), 0 8px 20px rgba(240,180,41,0.4);
-    }
-    .table-card:hover:not(.chosen) { transform: translateY(-4px); }
-
-    /* Build pile */
-    .build-pile {
-      position: relative;
-      width: calc(var(--card-w) + 12px);
-      height: calc(var(--card-h) + 12px);
-      flex-shrink: 0;
-      cursor: pointer;
-    }
-
-    .build-pile .card {
-      position: absolute;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.5);
-      pointer-events: none;
-    }
-
-    .build-badge {
-      position: absolute;
-      top: -6px;
-      right: -6px;
-      background: var(--gold);
-      color: #111;
-      font-size: 11px;
-      font-weight: 800;
-      border-radius: 50%;
-      width: 22px;
-      height: 22px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10;
-    }
-
-    .build-pile.chosen .build-badge {
-      box-shadow: 0 0 0 2px white;
-    }
-
-    /* ─── MODAL OVERLAY ─────────────────────────────────────────── */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.8);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      padding: 24px;
-      animation: fadeIn 0.25s ease;
-    }
-
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-    .modal-box {
-      background: linear-gradient(160deg, #142e1e, #0a1f10);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 28px;
-      width: 100%;
-      max-width: 380px;
-      padding: 28px 24px;
-      text-align: center;
-      animation: slideUp 0.3s ease;
-    }
-
-    .modal-icon { font-size: 48px; margin-bottom: 10px; }
-
-    .modal-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 26px;
-      font-weight: 900;
-      margin-bottom: 6px;
-    }
-
-    .modal-sub { font-size: 13px; color: rgba(255,255,255,0.45); margin-bottom: 20px; }
-
-    .breakdown-box {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-      padding: 14px;
-      text-align: left;
-      margin-bottom: 16px;
-    }
-
-    .breakdown-title {
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.35);
-      margin-bottom: 10px;
-    }
-
-    .breakdown-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      font-size: 13px;
-    }
-
-    .breakdown-row:last-child { border-bottom: none; }
-    .breakdown-row .pts { font-weight: 700; }
-    .breakdown-row .pts.mine { color: var(--gold); }
-    .breakdown-row .pts.theirs { color: rgba(255,255,255,0.3); }
-    .breakdown-row .label { color: rgba(255,255,255,0.55); }
-
-    .score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
-
-    .score-tile {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 14px;
-      padding: 12px;
-      text-align: center;
-    }
-
-    .score-tile.highlight {
-      background: rgba(240,180,41,0.1);
-      border-color: rgba(240,180,41,0.35);
-    }
-
-    .score-tile-label { font-size: 10px; color: rgba(255,255,255,0.4); }
-    .score-tile-pts { font-size: 28px; font-weight: 800; margin-top: 2px; }
-
-    .btn-primary {
-      width: 100%;
-      background: #059669;
-      color: white;
-      border: none;
-      border-radius: 16px;
-      padding: 17px;
-      font-family: 'Inter', sans-serif;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background 0.15s, transform 0.1s;
-    }
-    .btn-primary:hover { background: #10b981; }
-    .btn-primary:active { transform: scale(0.97); }
-
-    .waiting-msg { font-size: 13px; color: rgba(255,255,255,0.35); margin-top: 16px; animation: pulse 2s infinite; }
-
-    /* ─── TOAST ─────────────────────────────────────────────────── */
-    .toast {
-      position: fixed;
-      top: 18px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 10px 20px;
-      border-radius: 100px;
-      font-size: 13px;
-      font-weight: 600;
-      white-space: nowrap;
-      z-index: 200;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.5);
-      animation: slideUp 0.25s ease;
-      pointer-events: none;
-    }
-
-    .toast-error   { background: #dc2626; color: white; }
-    .toast-success { background: #059669; color: white; }
-    .toast-info    { background: #1d4ed8; color: white; }
-    .toast-sweep   { background: var(--gold); color: #111; }
-
-    /* ─── UTILS ─────────────────────────────────────────────────── */
-    @media (min-width: 400px) {
-      :root { --card-w: 64px; --card-h: 92px; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cassino — Online Multiplayer Card Game</title>
+    <meta name="description"
+        content="Play the classic fishing card game Cassino online with a friend. Mobile-first, real-time multiplayer.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --felt: #0f4a24;
+            --felt-light: #1a6135;
+            --felt-dark: #083018;
+            --gold: #f0b429;
+            --gold-dim: rgba(240, 180, 41, 0.25);
+            --white-10: rgba(255, 255, 255, 0.10);
+            --white-20: rgba(255, 255, 255, 0.20);
+            --white-40: rgba(255, 255, 255, 0.40);
+            --white-60: rgba(255, 255, 255, 0.60);
+            --red-card: #c0392b;
+            --black-card: #111;
+            --card-w: 58px;
+            --card-h: 84px;
+            --radius-card: 8px;
+        }
+
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #04200e;
+            color: white;
+            height: 100dvh;
+            overflow: hidden;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #app {
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ─── LOBBY ─────────────────────────────────────────────────── */
+        .lobby {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: radial-gradient(ellipse at 50% -10%, #1a5c32 0%, #04200e 65%);
+        }
+
+        .lobby-icon {
+            font-size: 64px;
+            margin-bottom: 12px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .lobby h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 52px;
+            font-weight: 900;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+
+        .lobby-sub {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #6ee7b7;
+            margin-top: 6px;
+        }
+
+        .lobby-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 24px;
+            padding: 24px;
+            width: 100%;
+            max-width: 360px;
+            margin-top: 32px;
+            backdrop-filter: blur(8px);
+        }
+
+        .lobby label {
+            display: block;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #6ee7b7;
+            margin-bottom: 8px;
+        }
+
+        .lobby input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 14px;
+            padding: 14px 16px;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+            font-weight: 500;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .lobby input:focus {
+            border-color: #6ee7b7;
+        }
+
+        .lobby input::placeholder {
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        .lobby-hint {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.25);
+            margin-top: 6px;
+        }
+
+        .btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .btn-host {
+            background: #059669;
+            color: white;
+            border: none;
+            border-radius: 16px;
+            padding: 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+        }
+
+        .btn-host:hover {
+            background: #10b981;
+        }
+
+        .btn-host:active {
+            transform: scale(0.96);
+        }
+
+        .btn-host:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .btn-join {
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 16px;
+            padding: 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+        }
+
+        .btn-join:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-join:active {
+            transform: scale(0.96);
+        }
+
+        .btn-join:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .status-msg {
+            text-align: center;
+            color: #6ee7b7;
+            font-size: 13px;
+            margin-top: 16px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .lobby-footer {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.18);
+            text-align: center;
+            margin-top: 24px;
+            max-width: 260px;
+            line-height: 1.6;
+        }
+
+        /* ─── WAITING ───────────────────────────────────────────────── */
+        .waiting {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            text-align: center;
+            background: radial-gradient(ellipse at 50% -10%, #1a5c32 0%, #04200e 65%);
+        }
+
+        .waiting h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 26px;
+            font-weight: 700;
+            margin-top: 16px;
+        }
+
+        .waiting p {
+            color: rgba(255, 255, 255, 0.45);
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .room-code {
+            color: #6ee7b7;
+            font-family: monospace;
+            font-weight: 700;
+            font-size: 17px;
+        }
+
+        .dots {
+            display: flex;
+            gap: 6px;
+            margin-top: 28px;
+            justify-content: center;
+        }
+
+        .dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #6ee7b7;
+            animation: bounce 1.2s infinite;
+        }
+
+        .dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            80%,
+            100% {
+                transform: translateY(0);
+            }
+
+            40% {
+                transform: translateY(-10px);
+            }
+        }
+
+        /* ─── GAME SCREEN ───────────────────────────────────────────── */
+        .game {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: #04200e;
+        }
+
+        /* Score bar */
+        .score-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px 6px;
+            flex-shrink: 0;
+        }
+
+        .score-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 6px 14px;
+            border-radius: 12px;
+            min-width: 80px;
+            transition: background 0.3s, border 0.3s;
+        }
+
+        .score-block.active {
+            background: rgba(240, 180, 41, 0.12);
+            border: 1px solid rgba(240, 180, 41, 0.35);
+        }
+
+        .score-block.inactive {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .score-label {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.45);
+        }
+
+        .score-pts {
+            font-size: 22px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .score-caps {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.3);
+            margin-top: 2px;
+        }
+
+        .score-center {
+            text-align: center;
+            flex: 1;
+        }
+
+        .score-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 16px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .deck-count {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.3);
+            margin-top: 1px;
+        }
+
+        .turn-badge {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-top: 3px;
+        }
+
+        .turn-badge.mine {
+            color: #f0b429;
+            animation: pulse 1.5s infinite;
+        }
+
+        .turn-badge.theirs {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Opponent hand */
+        .opp-hand {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            padding: 0 12px 6px;
+            flex-shrink: 0;
+            min-height: calc(var(--card-h) + 6px);
+            /* prevent layout collapse when empty */
+        }
+
+        /* Table */
+        .table-area {
+            flex: 1;
+            margin: -20px 10px 20px 10px;
+            border-radius: 20px;
+            background: radial-gradient(ellipse at center, var(--felt-light) 0%, var(--felt) 60%, var(--felt-dark) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.07);
+            box-shadow: inset 0 4px 24px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-wrap: wrap;
+            align-content: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            position: relative;
+            overflow: hidden;
+            min-height: 0;
+            transition: box-shadow 0.4s;
+        }
+
+        .table-area.my-turn {
+            box-shadow: inset 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(240, 180, 41, 0.4);
+        }
+
+        .table-empty {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.15);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        /* Hint */
+        .hint {
+            position: absolute;
+            bottom: 14px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            pointer-events: none;
+            letter-spacing: 0.5px;
+            z-index: 5;
+        }
+
+        /* Hand scroll */
+        .hand-scroll {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 16px 14px 6px;
+            /* increased top padding to avoid clipping selected cards */
+            margin-top: -10px;
+            /* counteract visual drop from padding */
+            justify-content: center;
+            scrollbar-width: none;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 10;
+            min-height: calc(var(--card-h) + 22px);
+            /* prevent layout collapse when empty */
+        }
+
+        .hand-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Action buttons */
+        .action-bar {
+            display: flex;
+            gap: 8px;
+            padding: 8px 14px 16px;
+            flex-shrink: 0;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 14px 6px;
+            border-radius: 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            border: none;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s, filter 0.15s;
+        }
+
+        .action-btn:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.25;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .btn-trail {
+            background: #166534;
+            color: white;
+        }
+
+        .btn-build {
+            background: #1e3a8a;
+            color: white;
+        }
+
+        .btn-capture {
+            background: #92400e;
+            color: white;
+        }
+
+        .btn-trail:hover:not(:disabled) {
+            filter: brightness(1.2);
+        }
+
+        .btn-build:hover:not(:disabled) {
+            filter: brightness(1.2);
+        }
+
+        .btn-capture:hover:not(:disabled) {
+            filter: brightness(1.2);
+        }
+
+        /* ─── CARDS ─────────────────────────────────────────────────── */
+        .card {
+            width: var(--card-w);
+            height: var(--card-h);
+            border-radius: var(--radius-card);
+            background: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 4px 5px;
+            cursor: pointer;
+            user-select: none;
+            flex-shrink: 0;
+            position: relative;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .card-rank-top {
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .card-suit-mid {
+            font-size: 22px;
+            text-align: center;
+            line-height: 1;
+            align-self: center;
+        }
+
+        .card-rank-bot {
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1;
+            align-self: flex-end;
+            transform: rotate(180deg);
+        }
+
+        .card.red {
+            color: var(--red-card);
+        }
+
+        .card.black {
+            color: var(--black-card);
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, #1e3a8a 25%, transparent 25%) -10px 0,
+                linear-gradient(225deg, #1e3a8a 25%, transparent 25%) -10px 0,
+                linear-gradient(315deg, #1e3a8a 25%, transparent 25%),
+                linear-gradient(45deg, #1e3a8a 25%, transparent 25%);
+            background-size: 14px 14px;
+            background-color: #2563eb;
+            border: 3px solid #1e3a8a;
+            cursor: default;
+        }
+
+        /* Hand cards */
+        .hand-card {
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .hand-card.selected {
+            transform: translateY(-14px);
+            box-shadow: 0 0 0 3px var(--gold), 0 10px 24px rgba(240, 180, 41, 0.45);
+        }
+
+        /* Table cards */
+        .table-card {
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        .table-card.chosen {
+            transform: translateY(-8px);
+            box-shadow: 0 0 0 3px var(--gold), 0 8px 20px rgba(240, 180, 41, 0.4);
+        }
+
+        .table-card:hover:not(.chosen) {
+            transform: translateY(-4px);
+        }
+
+        .table-card.capturable {
+            box-shadow: 0 0 0 2px #34d399, 0 0 12px rgba(52, 211, 153, 0.4);
+            animation: capturablePulse 1.5s infinite;
+            z-index: 5;
+        }
+
+        @keyframes capturablePulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 2px #34d399, 0 0 8px rgba(52, 211, 153, 0.3);
+                transform: translateY(0);
+            }
+
+            50% {
+                box-shadow: 0 0 0 3px #10b981, 0 4px 16px rgba(16, 185, 129, 0.6);
+                transform: translateY(-3px);
+            }
+        }
+
+
+        /* ─── MODAL OVERLAY ─────────────────────────────────────────── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 24px;
+            animation: fadeIn 0.25s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-box {
+            background: linear-gradient(160deg, #142e1e, #0a1f10);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 28px;
+            width: 100%;
+            max-width: 380px;
+            padding: 28px 24px;
+            text-align: center;
+            animation: slideUp 0.3s ease;
+        }
+
+        .modal-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .modal-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 26px;
+            font-weight: 900;
+            margin-bottom: 6px;
+        }
+
+        .modal-sub {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.45);
+            margin-bottom: 20px;
+        }
+
+        .breakdown-box {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 14px;
+            text-align: left;
+            margin-bottom: 16px;
+        }
+
+        .breakdown-title {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.35);
+            margin-bottom: 10px;
+        }
+
+        .breakdown-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 13px;
+        }
+
+        .breakdown-row:last-child {
+            border-bottom: none;
+        }
+
+        .breakdown-row .pts {
+            font-weight: 700;
+        }
+
+        .breakdown-row .pts.mine {
+            color: var(--gold);
+        }
+
+        .breakdown-row .pts.theirs {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .breakdown-row .label {
+            color: rgba(255, 255, 255, 0.55);
+        }
+
+        .score-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .score-tile {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .score-tile.highlight {
+            background: rgba(240, 180, 41, 0.1);
+            border-color: rgba(240, 180, 41, 0.35);
+        }
+
+        .score-tile-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .score-tile-pts {
+            font-size: 28px;
+            font-weight: 800;
+            margin-top: 2px;
+        }
+
+        .btn-primary {
+            width: 100%;
+            background: #059669;
+            color: white;
+            border: none;
+            border-radius: 16px;
+            padding: 17px;
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+        }
+
+        .btn-primary:hover {
+            background: #10b981;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.97);
+        }
+
+        .waiting-msg {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.35);
+            margin-top: 16px;
+            animation: pulse 2s infinite;
+        }
+
+        /* ─── TOAST ─────────────────────────────────────────────────── */
+        .toast {
+            position: fixed;
+            top: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            z-index: 200;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.25s ease;
+            pointer-events: none;
+        }
+
+        .toast-error {
+            background: #dc2626;
+            color: white;
+        }
+
+        .toast-success {
+            background: #059669;
+            color: white;
+        }
+
+        .toast-info {
+            background: #1d4ed8;
+            color: white;
+        }
+
+        .toast-sweep {
+            background: var(--gold);
+            color: #111;
+        }
+
+        /* ─── UTILS ─────────────────────────────────────────────────── */
+        @media (min-width: 400px) {
+            :root {
+                --card-w: 64px;
+                --card-h: 92px;
+            }
+        }
+    </style>
 </head>
+
 <body>
 
-<div id="app">
+    <div id="app">
 
-  <!-- ══ LOBBY ══════════════════════════════════════════════════════════ -->
-  <div v-if="phase === 'lobby'" class="lobby">
-    <div class="lobby-icon">🃏</div>
-    <h1>Cassino</h1>
-    <p class="lobby-sub">Classic Card Game · 2 Players</p>
+        <!-- ══ LOBBY ══════════════════════════════════════════════════════════ -->
+        <div v-if="phase === 'lobby'" class="lobby">
+            <div class="lobby-icon">🃏</div>
+            <h1>Cassino</h1>
+            <p class="lobby-sub">Classic Card Game · 2 Players</p>
 
-    <div class="lobby-card">
-      <label>Room Name</label>
-      <input
-        v-model="lobbyInput"
-        type="text"
-        placeholder="e.g. friday-night"
-        @keyup.enter="lobbyInput.trim() && initGame('create')"
-        autocomplete="off"
-        spellcheck="false"
-      >
-      <p class="lobby-hint">Share this room name with your opponent</p>
+            <div class="lobby-card">
+                <label>Room Name</label>
+                <input v-model="lobbyInput" type="text" placeholder="e.g. friday-night"
+                    @keyup.enter="lobbyInput.trim() && initGame('create')" autocomplete="off" spellcheck="false">
+                <p class="lobby-hint">Share this room name with your opponent</p>
 
-      <div class="btn-row">
-        <button class="btn-host" :disabled="!lobbyInput.trim()" @click="initGame('create')">🏠 Host</button>
-        <button class="btn-join" :disabled="!lobbyInput.trim()" @click="initGame('join')">🚀 Join</button>
-      </div>
+                <div class="btn-row">
+                    <button class="btn-host" :disabled="!lobbyInput.trim()" @click="initGame('create')">🏠 Host</button>
+                    <button class="btn-join" :disabled="!lobbyInput.trim()" @click="initGame('join')">🚀 Join</button>
+                </div>
 
-      <p v-if="statusMsg" class="status-msg">{{ statusMsg }}</p>
-    </div>
+                <p v-if="statusMsg" class="status-msg">{{ statusMsg }}</p>
+            </div>
 
-    <p class="lobby-footer">First to 21 points wins · Captures · Builds · Sweeps</p>
-  </div>
-
-  <!-- ══ WAITING ═════════════════════════════════════════════════════════ -->
-  <div v-else-if="phase === 'waiting'" class="waiting">
-    <div style="font-size:48px;">⏳</div>
-    <h2>Waiting for opponent</h2>
-    <p>Room: <span class="room-code">{{ gameId }}</span></p>
-    <p style="margin-top:4px; font-size:12px;">Share this room name and ask them to join!</p>
-    <div class="dots"><span></span><span></span><span></span></div>
-  </div>
-
-  <!-- ══ GAME ════════════════════════════════════════════════════════════ -->
-  <div v-else-if="phase === 'playing'" class="game">
-
-    <!-- Score bar -->
-    <div class="score-bar">
-      <div class="score-block" :class="!isMyTurn ? 'active' : 'inactive'">
-        <span class="score-label">Opponent</span>
-        <span class="score-pts">{{ opponentScore }}</span>
-        <span class="score-caps">{{ opponentCaptured }} cards</span>
-      </div>
-
-      <div class="score-center">
-        <div class="score-title">CASSINO</div>
-        <div class="deck-count">{{ deckCount }} in deck</div>
-        <div class="turn-badge" :class="isMyTurn ? 'mine' : 'theirs'">
-          {{ isMyTurn ? '⭐ Your turn' : 'Their turn…' }}
-        </div>
-      </div>
-
-      <div class="score-block" :class="isMyTurn ? 'active' : 'inactive'">
-        <span class="score-label">You</span>
-        <span class="score-pts">{{ myScore }}</span>
-        <span class="score-caps">{{ myCaptured }} cards</span>
-      </div>
-    </div>
-
-    <!-- Opponent hand (face-down) -->
-    <div class="opp-hand">
-      <div v-for="n in opponentHandCount" :key="n"
-        class="card card-back"
-        style="width:36px;height:52px;border-radius:6px;flex-shrink:0;">
-      </div>
-    </div>
-
-    <!-- Table -->
-    <div class="table-area" :class="{ 'my-turn': isMyTurn }">
-      <span v-if="table.length === 0" class="table-empty">Table is empty</span>
-
-      <template v-for="(item, idx) in table" :key="item.id || idx">
-
-        <!-- Single card -->
-        <div v-if="!item.isBuild"
-          class="card table-card"
-          :class="[item.color, isChosenTable(item) ? 'chosen' : '']"
-          @click="isMyTurn && selectedHandCard && toggleTable(item)"
-        >
-          <div class="card-rank-top">{{ item.rank }}</div>
-          <div class="card-suit-mid">{{ item.suit }}</div>
-          <div class="card-rank-bot">{{ item.rank }}</div>
+            <p class="lobby-footer">First to 21 points wins · Captures · Sweeps</p>
         </div>
 
-        <!-- Build -->
-        <div v-else
-          class="build-pile"
-          :class="{ chosen: isChosenTable(item) }"
-          @click="isMyTurn && selectedHandCard && toggleTable(item)"
-        >
-          <div
-            v-for="(bc, bi) in item.cards.slice(0, 4)" :key="bi"
-            class="card"
-            :class="bc.color"
-            :style="{ left: (bi*5)+'px', top: (bi*4)+'px', zIndex: bi }"
-          >
-            <div class="card-rank-top">{{ bc.rank }}</div>
-            <div class="card-suit-mid">{{ bc.suit }}</div>
-            <div class="card-rank-bot">{{ bc.rank }}</div>
-          </div>
-          <div class="build-badge">{{ item.value }}</div>
+        <!-- ══ WAITING ═════════════════════════════════════════════════════════ -->
+        <div v-else-if="phase === 'waiting'" class="waiting">
+            <div style="font-size:48px;">⏳</div>
+            <h2>Waiting for opponent</h2>
+            <p>Room: <span class="room-code">{{ gameId }}</span></p>
+            <p style="margin-top:4px; font-size:12px;">Share this room name and ask them to join!</p>
+            <div class="dots"><span></span><span></span><span></span></div>
         </div>
 
-      </template>
-    </div>
+        <!-- ══ GAME ════════════════════════════════════════════════════════════ -->
+        <div v-else-if="phase === 'playing'" class="game">
 
-    <!-- Hint -->
-    <div class="hint">
-      <span v-if="!isMyTurn">Waiting for opponent…</span>
-      <span v-else-if="!selectedHandCard">Tap a card from your hand</span>
-      <span v-else-if="tableChosen.length === 0">Tap table cards to capture or build · or Trail</span>
-      <span v-else>CAPTURE or BUILD? (sum={{ tableChosenSum }}, hand={{ selectedHandCard.value }})</span>
-    </div>
+            <!-- Score bar -->
+            <div class="score-bar">
+                <div class="score-block" :class="!isMyTurn ? 'active' : 'inactive'">
+                    <span class="score-label">Opponent</span>
+                    <span class="score-pts">{{ opponentScore }}</span>
+                    <span class="score-caps">{{ opponentCaptured }} cards</span>
+                </div>
 
-    <!-- My hand -->
-    <div class="hand-scroll">
-      <div v-for="(card, idx) in hand" :key="card.id"
-        class="card hand-card"
-        :class="[card.color, selectedHandCard === card ? 'selected' : '']"
-        @click="isMyTurn && selectHand(card)"
-      >
-        <div class="card-rank-top">{{ card.rank }}</div>
-        <div class="card-suit-mid">{{ card.suit }}</div>
-        <div class="card-rank-bot">{{ card.rank }}</div>
-      </div>
-    </div>
+                <div class="score-center">
+                    <div class="score-title">CASSINO</div>
+                    <div class="deck-count">{{ deckCount }} in deck</div>
+                    <div class="turn-badge" :class="isMyTurn ? 'mine' : 'theirs'">
+                        {{ isMyTurn ? '⭐ Your turn' : 'Their turn…' }}
+                    </div>
+                </div>
 
-    <!-- Actions -->
-    <div class="action-bar">
-      <button class="action-btn btn-trail"
-        :disabled="!isMyTurn || !selectedHandCard || tableChosen.length > 0"
-        @click="doTrail">Trail</button>
-      <button class="action-btn btn-build"
-        :disabled="!canBuild"
-        @click="doBuild">Build {{ canBuild ? '(' + buildSum + ')' : '' }}</button>
-      <button class="action-btn btn-capture"
-        :disabled="!canCapture"
-        @click="doCapture">Capture ({{ tableChosen.length }})</button>
-    </div>
+                <div class="score-block" :class="isMyTurn ? 'active' : 'inactive'">
+                    <span class="score-label">You</span>
+                    <span class="score-pts">{{ myScore }}</span>
+                    <span class="score-caps">{{ myCaptured }} cards</span>
+                </div>
+            </div>
 
-  </div>
+            <!-- Opponent hand (face-down) -->
+            <div class="opp-hand">
+                <div v-for="n in opponentHandCount" :key="n" class="card card-back"
+                    style="width:36px;height:52px;border-radius:6px;flex-shrink:0;">
+                </div>
+            </div>
 
-  <!-- ══ ROUND END / GAME OVER ═══════════════════════════════════════════ -->
-  <div v-if="phase === 'round_end' || phase === 'game_over'" class="modal-overlay">
-    <div class="modal-box">
+            <!-- Table -->
+            <div class="table-area" :class="{ 'my-turn': isMyTurn }">
+                <span v-if="table.length === 0" class="table-empty">Table is empty</span>
 
-      <div class="modal-icon">{{ phase === 'game_over' ? '🏆' : '🎴' }}</div>
+                <template v-for="(item, idx) in table" :key="item.id || idx">
+                    <div class="card table-card" :class="[
+            item.color, 
+            isChosenTable(item) ? 'chosen' : '',
+            isCapturable(item) && !isChosenTable(item) ? 'capturable' : ''
+          ]" @click="isMyTurn && selectedHandCard && toggleTable(item)">
+                        <div class="card-rank-top">{{ item.rank }}</div>
+                        <div class="card-suit-mid">{{ item.suit }}</div>
+                        <div class="card-rank-bot">{{ item.rank }}</div>
+                    </div>
+                </template>
 
-      <div class="modal-title">
-        <template v-if="phase === 'game_over'">
-          {{ myScore > opponentScore ? 'You Win!' : myScore < opponentScore ? 'You Lose.' : 'It\'s a Tie!' }}
-        </template>
-        <template v-else>Round Over</template>
-      </div>
+                <!-- Hint -->
+                <div class="hint">
+                    <span v-if="!isMyTurn">Waiting for opponent…</span>
+                    <span v-else-if="!selectedHandCard">Tap a card from your hand</span>
+                    <span v-else-if="tableChosen.length === 0">Tap table cards to capture · or Trail</span>
+                    <span v-else>CAPTURE? (sum={{ tableChosenSum }}, hand={{ selectedHandCard.handValue }})</span>
+                </div>
+            </div>
 
-      <div class="modal-sub">
-        <template v-if="phase === 'game_over'">
-          Final score: You {{ myScore }} – {{ opponentScore }} Opponent
-        </template>
-        <template v-else>
-          {{ myRoundPts > oppRoundPts ? 'You won the round! +' + myRoundPts + ' pts'
-           : myRoundPts < oppRoundPts ? 'Opponent won the round. +' + oppRoundPts + ' pts'
-           : 'Round tied — no bonus points' }}
-        </template>
-      </div>
+            <!-- My hand -->
+            <div class="hand-scroll">
+                <div v-for="(card, idx) in hand" :key="card.id" class="card hand-card"
+                    :class="[card.color, selectedHandCard === card ? 'selected' : '']"
+                    @click="isMyTurn && selectHand(card)">
+                    <div class="card-rank-top">{{ card.rank }}</div>
+                    <div class="card-suit-mid">{{ card.suit }}</div>
+                    <div class="card-rank-bot">{{ card.rank }}</div>
+                </div>
+            </div>
 
-      <!-- Breakdown — row.winner is absolute 'p1'/'p2', resolved per client below -->
-      <div v-if="roundResult?.breakdown?.length" class="breakdown-box">
-        <div class="breakdown-title">Round Scoring</div>
-        <div v-for="(row, i) in roundResult.breakdown" :key="i" class="breakdown-row">
-          <span class="label">{{ row.label }}</span>
-          <span class="pts" :class="row.winner === playerRole ? 'mine' : row.winner !== null ? 'theirs' : ''">
-            {{ row.winner === playerRole ? '+' + row.pts + ' you'
-             : row.winner !== null      ? '+' + row.pts + ' opp'
-             : 'tie' }}
-          </span>
+            <!-- Actions -->
+            <div class="action-bar">
+                <button class="action-btn btn-trail"
+                    :disabled="!isMyTurn || !selectedHandCard || tableChosen.length > 0" @click="doTrail">Trail</button>
+
+                <button class="action-btn btn-capture" :disabled="!canCapture" @click="doCapture">Capture ({{
+                    tableChosen.length }})</button>
+            </div>
+
         </div>
-      </div>
 
-      <!-- Scores -->
-      <div class="score-grid">
-        <div class="score-tile" :class="{ highlight: myScore >= opponentScore }">
-          <div class="score-tile-label">You</div>
-          <div class="score-tile-pts">{{ myScore }}</div>
+        <!-- ══ ROUND END / GAME OVER ═══════════════════════════════════════════ -->
+        <div v-if="phase === 'round_end' || phase === 'game_over'" class="modal-overlay">
+            <div class="modal-box">
+
+                <div class="modal-icon">{{ phase === 'game_over' ? '🏆' : '🎴' }}</div>
+
+                <div class="modal-title">
+                    <template v-if="phase === 'game_over'">
+                        {{ myScore > opponentScore ? 'You Win!' : myScore < opponentScore ? 'You Lose.' : 'It\' s a Tie!' }} </template>
+                            <template v-else>Round Over</template>
+                </div>
+
+                <div class="modal-sub">
+                    <template v-if="phase === 'game_over'">
+                        Final score: You {{ myScore }} – {{ opponentScore }} Opponent
+                    </template>
+                    <template v-else>
+                        {{ myRoundPts > oppRoundPts ? 'You won the round! +' + myRoundPts + ' pts'
+                        : myRoundPts < oppRoundPts ? 'Opponent won the round. +' + oppRoundPts + ' pts'
+                            : 'Round tied — no bonus points' }} </template>
+                </div>
+
+                <!-- Breakdown — row.winner is absolute 'p1'/'p2', resolved per client below -->
+                <div v-if="roundResult?.breakdown?.length" class="breakdown-box">
+                    <div class="breakdown-title">Round Scoring</div>
+                    <div v-for="(row, i) in roundResult.breakdown" :key="i" class="breakdown-row">
+                        <span class="label">{{ row.label }}</span>
+                        <span class="pts"
+                            :class="row.winner === playerRole ? 'mine' : row.winner !== null ? 'theirs' : ''">
+                            {{ row.winner === playerRole ? '+' + row.pts + ' you'
+                            : row.winner !== null ? '+' + row.pts + ' opp'
+                            : 'tie' }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Scores -->
+                <div class="score-grid">
+                    <div class="score-tile" :class="{ highlight: myScore >= opponentScore }">
+                        <div class="score-tile-label">You</div>
+                        <div class="score-tile-pts">{{ myScore }}</div>
+                    </div>
+                    <div class="score-tile" :class="{ highlight: opponentScore > myScore }">
+                        <div class="score-tile-label">Opponent</div>
+                        <div class="score-tile-pts">{{ opponentScore }}</div>
+                    </div>
+                </div>
+
+                <!-- Host controls -->
+                <template v-if="playerRole === 'p1'">
+                    <button v-if="phase === 'round_end'" class="btn-primary" @click="nextRound">Next Round →</button>
+                    <button v-else class="btn-primary" @click="playAgain">🔄 Play Again</button>
+                </template>
+                <p v-else class="waiting-msg">Waiting for host to continue…</p>
+
+            </div>
         </div>
-        <div class="score-tile" :class="{ highlight: opponentScore > myScore }">
-          <div class="score-tile-label">Opponent</div>
-          <div class="score-tile-pts">{{ opponentScore }}</div>
-        </div>
-      </div>
 
-      <!-- Host controls -->
-      <template v-if="playerRole === 'p1'">
-        <button v-if="phase === 'round_end'" class="btn-primary" @click="nextRound">Next Round →</button>
-        <button v-else class="btn-primary" @click="playAgain">🔄 Play Again</button>
-      </template>
-      <p v-else class="waiting-msg">Waiting for host to continue…</p>
+        <!-- ══ TOAST ════════════════════════════════════════════════════════════ -->
+        <div v-if="toast" class="toast" :class="'toast-' + toast.type">{{ toast.msg }}</div>
 
-    </div>
-  </div>
+    </div><!-- #app -->
 
-  <!-- ══ TOAST ════════════════════════════════════════════════════════════ -->
-  <div v-if="toast" class="toast" :class="'toast-' + toast.type">{{ toast.msg }}</div>
+    <script>
+        const { createApp, ref, computed } = Vue;
 
-</div><!-- #app -->
+        // ─── Supabase ────────────────────────────────────────────────────────────────
+        const SUPABASE_URL = 'https://jsbqzwsfccprxqvdzaru.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_XOGRmOq-72wRA_qYRYZ6aQ_lHh3-fwm';
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-<script>
-const { createApp, ref, computed } = Vue;
+        // ─── Card helpers ─────────────────────────────────────────────────────────────
+        const VALS = { A: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, 10: 10, J: 11, Q: 12, K: 13 };
 
-// ─── Supabase ────────────────────────────────────────────────────────────────
-const SUPABASE_URL = 'https://jsbqzwsfccprxqvdzaru.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_XOGRmOq-72wRA_qYRYZ6aQ_lHh3-fwm';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// ─── Card helpers ─────────────────────────────────────────────────────────────
-const VALS = { A:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:9, 10:10, J:11, Q:12, K:13 };
-
-function makeDeck() {
-  const suits = ['♠','♥','♦','♣'];
-  const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-  const deck = [];
-  suits.forEach(s => ranks.forEach(r => {
-    deck.push({ id: s + r, suit: s, rank: r, value: VALS[r], color: (s==='♥'||s==='♦') ? 'red' : 'black' });
-  }));
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  return deck;
-}
-
-// Unwrap a table item (card or build) into individual cards
-function unwrap(item) {
-  return item.isBuild ? [...item.cards] : [item];
-}
-
-// ─── Scoring ──────────────────────────────────────────────────────────────────
-function scoreCaptures(cards, sweeps) {
-  return {
-    count:        cards.length,
-    spades:       cards.filter(c => c.suit === '♠').length,
-    bigCassino:   cards.some(c => c.rank === '10' && c.suit === '♦'),
-    littleCassino:cards.some(c => c.rank === '2'  && c.suit === '♠'),
-    aces:         cards.filter(c => c.rank === 'A').length,
-    sweeps,
-  };
-}
-
-// Returns absolute 'p1'/'p2' winners — perspective resolved on each client in the template
-function calcRound(s1, s2) {
-  const breakdown = [];
-  let pts1 = 0, pts2 = 0;
-
-  function add(label, winner, pts) {
-    breakdown.push({ label, winner, pts }); // winner: 'p1' | 'p2' | null
-    if (winner === 'p1') pts1 += pts;
-    if (winner === 'p2') pts2 += pts;
-  }
-
-  // Most cards (3 pts)
-  if (s1.count !== s2.count)
-    add('Most cards (' + Math.max(s1.count, s2.count) + ')', s1.count > s2.count ? 'p1' : 'p2', 3);
-  else
-    add('Most cards (tie — ' + s1.count + ' each)', null, 0);
-
-  // Most spades (1 pt)
-  if (s1.spades !== s2.spades)
-    add('Most ♠ (' + Math.max(s1.spades, s2.spades) + ')', s1.spades > s2.spades ? 'p1' : 'p2', 1);
-  else
-    add('Most ♠ (tie — ' + s1.spades + ' each)', null, 0);
-
-  // Big Cassino 10♦ (2 pts)
-  if (s1.bigCassino)      add('Big Cassino 10♦', 'p1', 2);
-  else if (s2.bigCassino) add('Big Cassino 10♦', 'p2', 2);
-
-  // Little Cassino 2♠ (1 pt)
-  if (s1.littleCassino)      add('Little Cassino 2♠', 'p1', 1);
-  else if (s2.littleCassino) add('Little Cassino 2♠', 'p2', 1);
-
-  // Aces (1 pt each)
-  for (let i = 0; i < s1.aces; i++) add('Ace (p1)', 'p1', 1);
-  for (let i = 0; i < s2.aces; i++) add('Ace (p2)', 'p2', 1);
-
-  // Sweeps (1 pt each)
-  if (s1.sweeps > 0) add('Sweeps ×' + s1.sweeps, 'p1', s1.sweeps);
-  if (s2.sweeps > 0) add('Sweeps ×' + s2.sweeps, 'p2', s2.sweeps);
-
-  return { pts1, pts2, breakdown };
-}
-
-// ─── Vue App ──────────────────────────────────────────────────────────────────
-createApp({
-  setup() {
-    // Phase: lobby | waiting | playing | round_end | game_over
-    const phase       = ref('lobby');
-    const gameId      = ref('');
-    const lobbyInput  = ref('');
-    const playerRole  = ref('');   // 'p1' | 'p2'
-    const statusMsg   = ref('');
-    const toast       = ref(null);
-    const roundResult = ref(null);
-
-    // ── Game state ──
-    const deck       = ref([]);
-    const table      = ref([]);
-    const p1Hand     = ref([]);
-    const p2Hand     = ref([]);
-    const p1Cap      = ref([]);   // captured pile
-    const p2Cap      = ref([]);
-    const p1Sweeps   = ref(0);
-    const p2Sweeps   = ref(0);
-    const p1Score    = ref(0);
-    const p2Score    = ref(0);
-    const turn       = ref('p1');
-    const lastCapper = ref(null); // who last captured (gets table leftovers)
-
-    // ── UI selection state ──
-    const selectedHandCard = ref(null);
-    const tableChosenIds   = ref([]);   // IDs of selected table items
-
-    let channel = null;
-    let toastTimer = null;
-
-    // ── Computed ─────────────────────────────────────────────────────────────
-    const isP1       = computed(() => playerRole.value === 'p1');
-    const hand       = computed(() => isP1.value ? p1Hand.value : p2Hand.value);
-    const isMyTurn   = computed(() => turn.value === playerRole.value);
-    const myScore    = computed(() => isP1.value ? p1Score.value : p2Score.value);
-    const opponentScore     = computed(() => isP1.value ? p2Score.value : p1Score.value);
-    const myCaptured        = computed(() => (isP1.value ? p1Cap.value : p2Cap.value).length);
-    const opponentCaptured  = computed(() => (isP1.value ? p2Cap.value : p1Cap.value).length);
-    const opponentHandCount = computed(() => isP1.value ? p2Hand.value.length : p1Hand.value.length);
-    const deckCount         = computed(() => deck.value.length);
-    // Round result points from each client's own perspective
-    const myRoundPts  = computed(() => {
-      if (!roundResult.value) return 0;
-      return isP1.value ? (roundResult.value.pts1 ?? 0) : (roundResult.value.pts2 ?? 0);
-    });
-    const oppRoundPts = computed(() => {
-      if (!roundResult.value) return 0;
-      return isP1.value ? (roundResult.value.pts2 ?? 0) : (roundResult.value.pts1 ?? 0);
-    });
-
-    // Table items actually selected
-    const tableChosen = computed(() =>
-      table.value.filter(item => tableChosenIds.value.includes(item.id))
-    );
-
-    // Sum of chosen table items
-    const tableChosenSum = computed(() =>
-      tableChosen.value.reduce((acc, item) => acc + (item.isBuild ? item.value : item.value), 0)
-    );
-
-    // Build sum = table selected + hand card
-    const buildSum = computed(() => {
-      if (!selectedHandCard.value) return 0;
-      return tableChosenSum.value + selectedHandCard.value.value;
-    });
-
-    // Can capture: selected table items must match hand card
-    // Either: all same rank as hand card, OR sum equals hand card value
-    const canCapture = computed(() => {
-      if (!isMyTurn.value || !selectedHandCard.value || tableChosen.value.length === 0) return false;
-      const hv = selectedHandCard.value.value;
-      const sel = tableChosen.value;
-      // Rank match: all singles, same rank
-      const rankMatch = sel.every(it => !it.isBuild && it.rank === selectedHandCard.value.rank);
-      // Sum match (any mix of singles + builds)
-      const sumMatch = tableChosenSum.value === hv;
-      return rankMatch || sumMatch;
-    });
-
-    // Can build: hand card + table cards sum to a value X where player holds another card of value X
-    const canBuild = computed(() => {
-      if (!isMyTurn.value || !selectedHandCard.value || tableChosen.value.length === 0) return false;
-      if (tableChosen.value.some(it => it.isBuild)) return false; // no nested builds for simplicity
-      const bv = buildSum.value;
-      return hand.value.some(c => c !== selectedHandCard.value && c.value === bv);
-    });
-
-    // ── Toast ─────────────────────────────────────────────────────────────────
-    function showToast(msg, type = 'info', ms = 2800) {
-      toast.value = { msg, type };
-      if (toastTimer) clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => { toast.value = null; }, ms);
-    }
-
-    // ── State helpers ─────────────────────────────────────────────────────────
-    function applyState(s) {
-      if (s.deck      !== undefined) deck.value     = s.deck;
-      if (s.table     !== undefined) table.value    = s.table;
-      if (s.p1Hand    !== undefined) p1Hand.value   = s.p1Hand;
-      if (s.p2Hand    !== undefined) p2Hand.value   = s.p2Hand;
-      if (s.p1Cap     !== undefined) p1Cap.value    = s.p1Cap;
-      if (s.p2Cap     !== undefined) p2Cap.value    = s.p2Cap;
-      if (s.p1Sweeps  !== undefined) p1Sweeps.value = s.p1Sweeps;
-      if (s.p2Sweeps  !== undefined) p2Sweeps.value = s.p2Sweeps;
-      if (s.p1Score   !== undefined) p1Score.value  = s.p1Score;
-      if (s.p2Score   !== undefined) p2Score.value  = s.p2Score;
-      if (s.turn      !== undefined) turn.value     = s.turn;
-      // BUG FIX: lastCapper can legitimately be null — must not use ?? here
-      if ('lastCapper' in s)         lastCapper.value = s.lastCapper;
-      if (s.phase     !== undefined) phase.value    = s.phase;
-      if ('roundResult' in s)        roundResult.value = s.roundResult;
-    }
-
-    // BUG FIX: clone all arrays so refillOrEnd's splice() doesn't mutate
-    // reactive refs before applyState is called
-    function snap(extra = {}) {
-      return {
-        deck:      [...deck.value],
-        table:     [...table.value],
-        p1Hand:    [...p1Hand.value],
-        p2Hand:    [...p2Hand.value],
-        p1Cap:     [...p1Cap.value],
-        p2Cap:     [...p2Cap.value],
-        p1Sweeps:  p1Sweeps.value,
-        p2Sweeps:  p2Sweeps.value,
-        p1Score:   p1Score.value,
-        p2Score:   p2Score.value,
-        turn:      turn.value,
-        lastCapper: lastCapper.value,
-        phase:     phase.value,
-        roundResult: roundResult.value,
-        ...extra,
-      };
-    }
-
-    function broadcast(state) {
-      channel?.send({ type: 'broadcast', event: 'state', payload: state });
-    }
-
-    // commit: apply state locally first, then broadcast to opponent
-    function commit(state) {
-      applyState(state);
-      broadcast(state);
-      resetUI();
-    }
-
-    // ── Round mechanics ───────────────────────────────────────────────────────
-    // After every move, check if hands are empty → refill or end round
-    function refillOrEnd(s) {
-      if (s.p1Hand.length > 0 || s.p2Hand.length > 0) return; // hands not empty yet
-
-      if (s.deck.length >= 8) {
-        // Normal refill — safe because snap() cloned the deck array
-        s.p1Hand = s.deck.splice(0, 4);
-        s.p2Hand = s.deck.splice(0, 4);
-        return;
-      }
-
-      // Deck exhausted → end of round
-      // Last capturer gets any remaining table cards
-      const leftovers = [];
-      s.table.forEach(item => leftovers.push(...unwrap(item)));
-      s.table = [];
-      if (s.lastCapper === 'p1')      s.p1Cap = [...s.p1Cap, ...leftovers];
-      else if (s.lastCapper === 'p2') s.p2Cap = [...s.p2Cap, ...leftovers];
-
-      // Score — use absolute 'p1'/'p2' winners; each client resolves perspective in template
-      const stat1 = scoreCaptures(s.p1Cap, s.p1Sweeps);
-      const stat2 = scoreCaptures(s.p2Cap, s.p2Sweeps);
-      const { pts1, pts2, breakdown } = calcRound(stat1, stat2);
-
-      s.p1Score += pts1;
-      s.p2Score += pts2;
-
-      // Store absolute pts so each client can compute their own perspective
-      s.roundResult = { breakdown, pts1, pts2 };
-
-      s.phase = (s.p1Score >= 21 || s.p2Score >= 21) ? 'game_over' : 'round_end';
-    }
-
-    // ── Lobby ─────────────────────────────────────────────────────────────────
-    async function initGame(mode) {
-      const id = lobbyInput.value.trim().toLowerCase();
-      if (!id) return;
-
-      gameId.value = id;
-      playerRole.value = mode === 'create' ? 'p1' : 'p2';
-      phase.value = 'waiting';
-      statusMsg.value = mode === 'create' ? 'Waiting for opponent…' : 'Joining…';
-
-      // BUG FIX: no self:true — host already applies state locally via commit();
-      // self-echo caused host to double-apply state and sent an empty snap() to joiner
-      channel = sb.channel(`cassino::${id}`);
-
-      // BUG FIX: register ALL handlers BEFORE calling .subscribe() to avoid race conditions
-      channel
-        .on('broadcast', { event: 'state' }, ({ payload }) => {
-          applyState(payload);
-          resetUI();
-        })
-        .on('broadcast', { event: 'join' }, () => {
-          // Only host reacts to join signals
-          if (playerRole.value !== 'p1') return;
-          if (phase.value === 'waiting') {
-            // First join → deal a fresh game
-            deal();
-          } else {
-            // Reconnection mid-game → resend current state
-            broadcast(snap());
-          }
-        })
-        .subscribe(async status => {
-          if (status !== 'SUBSCRIBED') return;
-          if (mode === 'join') {
-            // Signal host: either start a new game or resend existing state
-            channel.send({ type: 'broadcast', event: 'join', payload: {} });
-          }
-        });
-    }
-
-    function deal(keepScores = false) {
-      const d = makeDeck();
-      const s = {
-        deck: d,
-        table: d.splice(0, 4),
-        p1Hand: d.splice(0, 4),
-        p2Hand: d.splice(0, 4),
-        p1Cap: [], p2Cap: [],
-        p1Sweeps: 0, p2Sweeps: 0,
-        p1Score: keepScores ? p1Score.value : 0,
-        p2Score: keepScores ? p2Score.value : 0,
-        turn: 'p1', lastCapper: null,
-        phase: 'playing', roundResult: null,
-      };
-      commit(s);
-    }
-
-    // ── UI helpers ─────────────────────────────────────────────────────────────
-    function resetUI() {
-      selectedHandCard.value = null;
-      tableChosenIds.value = [];
-    }
-
-    function selectHand(card) {
-      if (selectedHandCard.value === card) {
-        selectedHandCard.value = null;
-        tableChosenIds.value = [];
-      } else {
-        selectedHandCard.value = card;
-        tableChosenIds.value = [];
-      }
-    }
-
-    function isChosenTable(item) {
-      return tableChosenIds.value.includes(item.id);
-    }
-
-    function toggleTable(item) {
-      const idx = tableChosenIds.value.indexOf(item.id);
-      if (idx > -1) tableChosenIds.value.splice(idx, 1);
-      else tableChosenIds.value.push(item.id);
-    }
-
-    // ── Actions ────────────────────────────────────────────────────────────────
-    function doTrail() {
-      if (!isMyTurn.value || !selectedHandCard.value) return;
-      const hc = selectedHandCard.value;
-      const s = snap();
-      s.table = [...table.value, hc];
-      if (isP1.value) s.p1Hand = p1Hand.value.filter(c => c !== hc);
-      else            s.p2Hand = p2Hand.value.filter(c => c !== hc);
-      s.turn = isP1.value ? 'p2' : 'p1';
-      refillOrEnd(s);
-      commit(s);
-    }
-
-    function doCapture() {
-      if (!canCapture.value) { showToast('Invalid capture!', 'error'); return; }
-      const hc  = selectedHandCard.value;
-      const sel = tableChosen.value;
-
-      // Collect all cards going to capture pile
-      const gained = [hc];
-      sel.forEach(item => gained.push(...unwrap(item)));
-
-      const s = snap();
-      s.table = table.value.filter(item => !sel.includes(item));
-
-      if (isP1.value) {
-        s.p1Hand = p1Hand.value.filter(c => c !== hc);
-        s.p1Cap  = [...p1Cap.value, ...gained];
-        // BUG FIX: sweep is valid even on your last card; removed "&& hand.length > 0"
-        if (s.table.length === 0) {
-          s.p1Sweeps = p1Sweeps.value + 1;
-          showToast('🧹 SWEEP!', 'sweep');
+        function makeDeck() {
+            const suits = ['♠', '♥', '♦', '♣'];
+            const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+            const deck = [];
+            suits.forEach(s => ranks.forEach(r => {
+                let tVal = VALS[r];
+                let hVal = VALS[r];
+                if (r === 'A') {
+                    hVal = 14;
+                    tVal = 1;
+                } else if (r === '2' && s === '♠') {
+                    hVal = 15;
+                    tVal = 2;
+                } else if (r === '10' && s === '♦') {
+                    hVal = 16;
+                    tVal = 10;
+                }
+                deck.push({
+                    id: s + r,
+                    suit: s,
+                    rank: r,
+                    value: tVal,
+                    tableValue: tVal,
+                    handValue: hVal,
+                    color: (s === '♥' || s === '♦') ? 'red' : 'black'
+                });
+            }));
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+            return deck;
         }
-      } else {
-        s.p2Hand = p2Hand.value.filter(c => c !== hc);
-        s.p2Cap  = [...p2Cap.value, ...gained];
-        if (s.table.length === 0) {
-          s.p2Sweeps = p2Sweeps.value + 1;
-          showToast('🧹 SWEEP!', 'sweep');
+
+        function canPartitionIntoSets(arr, target) {
+            if (arr.length === 0) return true;
+            const total = arr.reduce((a, b) => a + b, 0);
+            if (total === 0 || total % target !== 0) return false;
+            const k = total / target;
+            const n = arr.length;
+            const used = new Array(n).fill(false);
+
+            function backtrack(startIdx, currentSum, setsFormed) {
+                if (setsFormed === k) return true;
+                if (currentSum === target) {
+                    return backtrack(0, 0, setsFormed + 1);
+                }
+                for (let i = startIdx; i < n; i++) {
+                    if (!used[i] && currentSum + arr[i] <= target) {
+                        used[i] = true;
+                        if (backtrack(i + 1, currentSum + arr[i], setsFormed)) return true;
+                        used[i] = false;
+                        if (currentSum === 0) return false;
+                    }
+                }
+                return false;
+            }
+            return backtrack(0, 0, 0);
         }
-      }
 
-      s.lastCapper = playerRole.value;
-      s.turn = isP1.value ? 'p2' : 'p1';
-      refillOrEnd(s);
-      commit(s);
-    }
+        // ─── Scoring ──────────────────────────────────────────────────────────────────
+        function scoreCaptures(cards, sweeps) {
+            return {
+                count: cards.length,
+                spades: cards.filter(c => c.suit === '♠').length,
+                bigCassino: cards.some(c => c.rank === '10' && c.suit === '♦'),
+                littleCassino: cards.some(c => c.rank === '2' && c.suit === '♠'),
+                aces: cards.filter(c => c.rank === 'A').length,
+                sweeps,
+            };
+        }
 
-    function doBuild() {
-      if (!canBuild.value) return;
-      const hc  = selectedHandCard.value;
-      const sel = tableChosen.value;
-      const bv  = buildSum.value;
+        // Returns absolute 'p1'/'p2' winners — perspective resolved on each client in the template
+        function calcRound(s1, s2) {
+            const breakdown = [];
+            let pts1 = 0, pts2 = 0;
 
-      const build = {
-        id: 'build_' + Date.now(),
-        isBuild: true,
-        cards: [...sel, hc],
-        value: bv,
-        owner: playerRole.value,
-      };
+            function add(label, winner, pts) {
+                breakdown.push({ label, winner, pts }); // winner: 'p1' | 'p2' | null
+                if (winner === 'p1') pts1 += pts;
+                if (winner === 'p2') pts2 += pts;
+            }
 
-      const s = snap();
-      s.table = [...table.value.filter(it => !sel.includes(it)), build];
-      if (isP1.value) s.p1Hand = p1Hand.value.filter(c => c !== hc);
-      else            s.p2Hand = p2Hand.value.filter(c => c !== hc);
-      s.turn = isP1.value ? 'p2' : 'p1';
-      refillOrEnd(s);
-      commit(s);
-      showToast('Build ' + bv + ' placed!', 'info');
-    }
+            // Most cards (3 pts)
+            if (s1.count !== s2.count)
+                add('Most cards (' + Math.max(s1.count, s2.count) + ')', s1.count > s2.count ? 'p1' : 'p2', 3);
+            else
+                add('Most cards (tie — ' + s1.count + ' each)', null, 0);
 
-    // ── Round / game controls ─────────────────────────────────────────────────
-    function nextRound() {
-      deal(true); // keep cumulative scores
-    }
+            // Most spades (1 pt)
+            if (s1.spades !== s2.spades)
+                add('Most ♠ (' + Math.max(s1.spades, s2.spades) + ')', s1.spades > s2.spades ? 'p1' : 'p2', 1);
+            else
+                add('Most ♠ (tie — ' + s1.spades + ' each)', null, 0);
 
-    function playAgain() {
-      deal(false); // reset scores
-    }
+            // Big Cassino 10♦ (2 pts)
+            if (s1.bigCassino) add('Big Cassino 10♦', 'p1', 2);
+            else if (s2.bigCassino) add('Big Cassino 10♦', 'p2', 2);
 
-    return {
-      // phase / meta
-      phase, gameId, lobbyInput, playerRole, statusMsg, toast, roundResult,
-      // game computed
-      hand, isMyTurn, myScore, opponentScore,
-      myCaptured, opponentCaptured, opponentHandCount, deckCount,
-      myRoundPts, oppRoundPts,
-      table, deck, turn,
-      // selection
-      selectedHandCard, tableChosen, tableChosenIds, tableChosenSum,
-      buildSum, canCapture, canBuild,
-      // methods
-      initGame, selectHand, isChosenTable, toggleTable,
-      doTrail, doCapture, doBuild,
-      nextRound, playAgain,
-    };
-  },
-}).mount('#app');
-</script>
+            // Little Cassino 2♠ (1 pt)
+            if (s1.littleCassino) add('Little Cassino 2♠', 'p1', 1);
+            else if (s2.littleCassino) add('Little Cassino 2♠', 'p2', 1);
+
+            // Aces (1 pt each)
+            for (let i = 0; i < s1.aces; i++) add('Ace (p1)', 'p1', 1);
+            for (let i = 0; i < s2.aces; i++) add('Ace (p2)', 'p2', 1);
+
+            // Sweeps (1 pt each)
+            if (s1.sweeps > 0) add('Sweeps ×' + s1.sweeps, 'p1', s1.sweeps);
+            if (s2.sweeps > 0) add('Sweeps ×' + s2.sweeps, 'p2', s2.sweeps);
+
+            return { pts1, pts2, breakdown };
+        }
+
+        // ─── Vue App ──────────────────────────────────────────────────────────────────
+        createApp({
+            setup() {
+                // Phase: lobby | waiting | playing | round_end | game_over
+                const phase = ref('lobby');
+                const gameId = ref('');
+                const lobbyInput = ref('');
+                const playerRole = ref('');   // 'p1' | 'p2'
+                const statusMsg = ref('');
+                const toast = ref(null);
+                const roundResult = ref(null);
+
+                // ── Game state ──
+                const deck = ref([]);
+                const table = ref([]);
+                const p1Hand = ref([]);
+                const p2Hand = ref([]);
+                const p1Cap = ref([]);   // captured pile
+                const p2Cap = ref([]);
+                const p1Sweeps = ref(0);
+                const p2Sweeps = ref(0);
+                const p1Score = ref(0);
+                const p2Score = ref(0);
+                const turn = ref('p1');
+                const lastCapper = ref(null); // who last captured (gets table leftovers)
+
+                // ── UI selection state ──
+                const selectedHandCard = ref(null);
+                const tableChosenIds = ref([]);   // IDs of selected table items
+
+                let channel = null;
+                let toastTimer = null;
+
+                // ── Computed ─────────────────────────────────────────────────────────────
+                const isP1 = computed(() => playerRole.value === 'p1');
+                const hand = computed(() => isP1.value ? p1Hand.value : p2Hand.value);
+                const isMyTurn = computed(() => turn.value === playerRole.value);
+                const myScore = computed(() => isP1.value ? p1Score.value : p2Score.value);
+                const opponentScore = computed(() => isP1.value ? p2Score.value : p1Score.value);
+                const myCaptured = computed(() => (isP1.value ? p1Cap.value : p2Cap.value).length);
+                const opponentCaptured = computed(() => (isP1.value ? p2Cap.value : p1Cap.value).length);
+                const opponentHandCount = computed(() => isP1.value ? p2Hand.value.length : p1Hand.value.length);
+                const deckCount = computed(() => deck.value.length);
+                // Round result points from each client's own perspective
+                const myRoundPts = computed(() => {
+                    if (!roundResult.value) return 0;
+                    return isP1.value ? (roundResult.value.pts1 ?? 0) : (roundResult.value.pts2 ?? 0);
+                });
+                const oppRoundPts = computed(() => {
+                    if (!roundResult.value) return 0;
+                    return isP1.value ? (roundResult.value.pts2 ?? 0) : (roundResult.value.pts1 ?? 0);
+                });
+
+                // Table items actually selected
+                const tableChosen = computed(() =>
+                    table.value.filter(item => tableChosenIds.value.includes(item.id))
+                );
+
+                // Sum of chosen table items
+                const tableChosenSum = computed(() =>
+                    tableChosen.value.reduce((acc, item) => acc + item.tableValue, 0)
+                );
+
+                // Can capture: selected table cards sum must be a multiple of hand card's handValue
+                // and correctly partition into that subset value.
+                const canCapture = computed(() => {
+                    if (!isMyTurn.value || !selectedHandCard.value || tableChosen.value.length === 0) return false;
+                    const hv = selectedHandCard.value.handValue;
+                    const sel = tableChosen.value;
+
+                    const values = sel.map(c => c.tableValue);
+                    return canPartitionIntoSets(values, hv);
+                });
+
+                // Determines which table cards are part of any valid sum to the selected hand card
+                const capturableTableCardIds = computed(() => {
+                    if (!isMyTurn.value || !selectedHandCard.value) return [];
+
+                    const target = selectedHandCard.value.handValue;
+                    const tCards = table.value;
+                    const n = tCards.length;
+                    const capturableIds = new Set();
+
+                    function findSubsets(idx, currentSum, currentSubset) {
+                        if (currentSum === target) {
+                            currentSubset.forEach(id => capturableIds.add(id));
+                            // We can't prune right here because the current item might be 0, though we don't have 0 value cards.
+                            // Yet, let's keep it robust. If we hit the sum, any additional card will exceed unless it's 0.
+                        }
+                        if (currentSum >= target || idx >= n) return;
+
+                        // include
+                        findSubsets(idx + 1, currentSum + tCards[idx].tableValue, [...currentSubset, tCards[idx].id]);
+
+                        // exclude
+                        findSubsets(idx + 1, currentSum, currentSubset);
+                    }
+
+                    findSubsets(0, 0, []);
+                    return Array.from(capturableIds);
+                });
+
+                function isCapturable(item) {
+                    return capturableTableCardIds.value.includes(item.id);
+                }
+
+                // ── Toast ─────────────────────────────────────────────────────────────────
+                function showToast(msg, type = 'info', ms = 2800) {
+                    toast.value = { msg, type };
+                    if (toastTimer) clearTimeout(toastTimer);
+                    toastTimer = setTimeout(() => { toast.value = null; }, ms);
+                }
+
+                // ── State helpers ─────────────────────────────────────────────────────────
+                function applyState(s) {
+                    if (s.deck !== undefined) deck.value = s.deck;
+                    if (s.table !== undefined) table.value = s.table;
+                    if (s.p1Hand !== undefined) p1Hand.value = s.p1Hand;
+                    if (s.p2Hand !== undefined) p2Hand.value = s.p2Hand;
+                    if (s.p1Cap !== undefined) p1Cap.value = s.p1Cap;
+                    if (s.p2Cap !== undefined) p2Cap.value = s.p2Cap;
+                    if (s.p1Sweeps !== undefined) p1Sweeps.value = s.p1Sweeps;
+                    if (s.p2Sweeps !== undefined) p2Sweeps.value = s.p2Sweeps;
+                    if (s.p1Score !== undefined) p1Score.value = s.p1Score;
+                    if (s.p2Score !== undefined) p2Score.value = s.p2Score;
+                    if (s.turn !== undefined) turn.value = s.turn;
+                    // BUG FIX: lastCapper can legitimately be null — must not use ?? here
+                    if ('lastCapper' in s) lastCapper.value = s.lastCapper;
+                    if (s.phase !== undefined) phase.value = s.phase;
+                    if ('roundResult' in s) roundResult.value = s.roundResult;
+                }
+
+                // BUG FIX: clone all arrays so refillOrEnd's splice() doesn't mutate
+                // reactive refs before applyState is called
+                function snap(extra = {}) {
+                    return {
+                        deck: [...deck.value],
+                        table: [...table.value],
+                        p1Hand: [...p1Hand.value],
+                        p2Hand: [...p2Hand.value],
+                        p1Cap: [...p1Cap.value],
+                        p2Cap: [...p2Cap.value],
+                        p1Sweeps: p1Sweeps.value,
+                        p2Sweeps: p2Sweeps.value,
+                        p1Score: p1Score.value,
+                        p2Score: p2Score.value,
+                        turn: turn.value,
+                        lastCapper: lastCapper.value,
+                        phase: phase.value,
+                        roundResult: roundResult.value,
+                        ...extra,
+                    };
+                }
+
+                function broadcast(state) {
+                    channel?.send({ type: 'broadcast', event: 'state', payload: state });
+                }
+
+                // commit: apply state locally first, then broadcast to opponent
+                function commit(state) {
+                    applyState(state);
+                    broadcast(state);
+                    resetUI();
+                }
+
+                // ── Round mechanics ───────────────────────────────────────────────────────
+                // After every move, check if hands are empty → refill or end round
+                function refillOrEnd(s) {
+                    if (s.p1Hand.length > 0 || s.p2Hand.length > 0) return; // hands not empty yet
+
+                    if (s.deck.length >= 8) {
+                        // Normal refill — safe because snap() cloned the deck array
+                        s.p1Hand = s.deck.splice(0, 4);
+                        s.p2Hand = s.deck.splice(0, 4);
+                        return;
+                    }
+
+                    // Deck exhausted → end of round
+                    // Last capturer gets any remaining table cards
+                    const leftovers = [...s.table];
+                    s.table = [];
+                    if (s.lastCapper === 'p1') s.p1Cap = [...s.p1Cap, ...leftovers];
+                    else if (s.lastCapper === 'p2') s.p2Cap = [...s.p2Cap, ...leftovers];
+
+                    // Score — use absolute 'p1'/'p2' winners; each client resolves perspective in template
+                    const stat1 = scoreCaptures(s.p1Cap, s.p1Sweeps);
+                    const stat2 = scoreCaptures(s.p2Cap, s.p2Sweeps);
+                    const { pts1, pts2, breakdown } = calcRound(stat1, stat2);
+
+                    s.p1Score += pts1;
+                    s.p2Score += pts2;
+
+                    // Store absolute pts so each client can compute their own perspective
+                    s.roundResult = { breakdown, pts1, pts2 };
+
+                    s.phase = (s.p1Score >= 21 || s.p2Score >= 21) ? 'game_over' : 'round_end';
+                }
+
+                // ── Lobby ─────────────────────────────────────────────────────────────────
+                async function initGame(mode) {
+                    const id = lobbyInput.value.trim().toLowerCase();
+                    if (!id) return;
+
+                    gameId.value = id;
+                    playerRole.value = mode === 'create' ? 'p1' : 'p2';
+                    phase.value = 'waiting';
+                    statusMsg.value = mode === 'create' ? 'Waiting for opponent…' : 'Joining…';
+
+                    // BUG FIX: no self:true — host already applies state locally via commit();
+                    // self-echo caused host to double-apply state and sent an empty snap() to joiner
+                    channel = sb.channel(`cassino::${id}`);
+
+                    // BUG FIX: register ALL handlers BEFORE calling .subscribe() to avoid race conditions
+                    channel
+                        .on('broadcast', { event: 'state' }, ({ payload }) => {
+                            applyState(payload);
+                            resetUI();
+                        })
+                        .on('broadcast', { event: 'join' }, () => {
+                            // Only host reacts to join signals
+                            if (playerRole.value !== 'p1') return;
+                            if (phase.value === 'waiting') {
+                                // First join → deal a fresh game
+                                deal();
+                            } else {
+                                // Reconnection mid-game → resend current state
+                                broadcast(snap());
+                            }
+                        })
+                        .subscribe(async status => {
+                            if (status !== 'SUBSCRIBED') return;
+                            if (mode === 'join') {
+                                // Signal host: either start a new game or resend existing state
+                                channel.send({ type: 'broadcast', event: 'join', payload: {} });
+                            }
+                        });
+                }
+
+                function deal(keepScores = false) {
+                    const d = makeDeck();
+                    const s = {
+                        deck: d,
+                        table: d.splice(0, 4),
+                        p1Hand: d.splice(0, 4),
+                        p2Hand: d.splice(0, 4),
+                        p1Cap: [], p2Cap: [],
+                        p1Sweeps: 0, p2Sweeps: 0,
+                        p1Score: keepScores ? p1Score.value : 0,
+                        p2Score: keepScores ? p2Score.value : 0,
+                        turn: 'p1', lastCapper: null,
+                        phase: 'playing', roundResult: null,
+                    };
+                    commit(s);
+                }
+
+                // ── UI helpers ─────────────────────────────────────────────────────────────
+                function resetUI() {
+                    selectedHandCard.value = null;
+                    tableChosenIds.value = [];
+                }
+
+                function selectHand(card) {
+                    if (selectedHandCard.value === card) {
+                        selectedHandCard.value = null;
+                        tableChosenIds.value = [];
+                    } else {
+                        selectedHandCard.value = card;
+                        tableChosenIds.value = [];
+                    }
+                }
+
+                function isChosenTable(item) {
+                    return tableChosenIds.value.includes(item.id);
+                }
+
+                function toggleTable(item) {
+                    const idx = tableChosenIds.value.indexOf(item.id);
+                    if (idx > -1) tableChosenIds.value.splice(idx, 1);
+                    else tableChosenIds.value.push(item.id);
+                }
+
+                // ── Actions ────────────────────────────────────────────────────────────────
+                function doTrail() {
+                    if (!isMyTurn.value || !selectedHandCard.value) return;
+                    const hc = selectedHandCard.value;
+                    const s = snap();
+                    s.table = [...table.value, hc];
+                    if (isP1.value) s.p1Hand = p1Hand.value.filter(c => c !== hc);
+                    else s.p2Hand = p2Hand.value.filter(c => c !== hc);
+                    s.turn = isP1.value ? 'p2' : 'p1';
+                    refillOrEnd(s);
+                    commit(s);
+                }
+
+                function doCapture() {
+                    if (!canCapture.value) { showToast('Invalid capture!', 'error'); return; }
+                    const hc = selectedHandCard.value;
+                    const sel = tableChosen.value;
+
+                    // Collect all cards going to capture pile
+                    const gained = [hc, ...sel];
+
+                    const s = snap();
+                    s.table = table.value.filter(item => !sel.includes(item));
+
+                    if (isP1.value) {
+                        s.p1Hand = p1Hand.value.filter(c => c !== hc);
+                        s.p1Cap = [...p1Cap.value, ...gained];
+                        // BUG FIX: sweep is valid even on your last card; removed "&& hand.length > 0"
+                        if (s.table.length === 0) {
+                            s.p1Sweeps = p1Sweeps.value + 1;
+                            showToast('🧹 SWEEP!', 'sweep');
+                        }
+                    } else {
+                        s.p2Hand = p2Hand.value.filter(c => c !== hc);
+                        s.p2Cap = [...p2Cap.value, ...gained];
+                        if (s.table.length === 0) {
+                            s.p2Sweeps = p2Sweeps.value + 1;
+                            showToast('🧹 SWEEP!', 'sweep');
+                        }
+                    }
+
+                    s.lastCapper = playerRole.value;
+                    s.turn = isP1.value ? 'p2' : 'p1';
+                    refillOrEnd(s);
+                    commit(s);
+                }
+
+
+
+                // ── Round / game controls ─────────────────────────────────────────────────
+                function nextRound() {
+                    deal(true); // keep cumulative scores
+                }
+
+                function playAgain() {
+                    deal(false); // reset scores
+                }
+
+                return {
+                    // phase / meta
+                    phase, gameId, lobbyInput, playerRole, statusMsg, toast, roundResult,
+                    // game computed
+                    hand, isMyTurn, myScore, opponentScore,
+                    myCaptured, opponentCaptured, opponentHandCount, deckCount,
+                    myRoundPts, oppRoundPts,
+                    table, deck, turn,
+                    // selection
+                    selectedHandCard, tableChosen, tableChosenIds, tableChosenSum,
+                    canCapture,
+                    // methods
+                    initGame, selectHand, isChosenTable, toggleTable, isCapturable,
+                    doTrail, doCapture,
+                    nextRound, playAgain,
+                };
+            },
+        }).mount('#app');
+    </script>
 </body>
+
 </html>
